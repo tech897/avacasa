@@ -1,0 +1,100 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/db'
+import jwt from 'jsonwebtoken'
+
+// Valid activity types from the Prisma schema
+const VALID_ACTIVITY_TYPES = [
+  'PAGE_VIEW',
+  'PAGE_EXIT',
+  'SCROLL_DEPTH',
+  'PROPERTY_VIEW',
+  'PROPERTY_SEARCH',
+  'PROPERTY_INQUIRY',
+  'PROPERTY_FAVORITE',
+  'LOCATION_VIEW',
+  'BLOG_VIEW',
+  'BUTTON_CLICK',
+  'LINK_CLICK',
+  'CTA_CLICK',
+  'FORM_START',
+  'FORM_COMPLETE',
+  'DOWNLOAD',
+  'USER_REGISTER',
+  'USER_LOGIN',
+  'EMAIL_SUBSCRIBE',
+  'CONTACT_SUBMIT'
+] as const
+
+export async function POST(request: NextRequest) {
+  try {
+    const { action, resource, metadata } = await request.json()
+
+    // Validate action type
+    if (!action || !VALID_ACTIVITY_TYPES.includes(action)) {
+      console.warn(`Invalid activity type: ${action}`)
+      return NextResponse.json({ success: false, error: 'Invalid activity type' }, { status: 400 })
+    }
+
+    // Get user ID from token if available
+    let userId: string | null = null
+    let sessionId: string | null = null
+
+    const token = request.cookies.get('auth-token')?.value
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as { userId: string }
+        userId = decoded.userId
+      } catch (error) {
+        // Token invalid, continue as anonymous
+      }
+    }
+
+    // Generate session ID for anonymous users
+    if (!userId) {
+      sessionId = request.cookies.get('session-id')?.value || generateSessionId()
+    }
+
+    // Track the activity
+    await prisma.userActivity.create({
+      data: {
+        userId,
+        sessionId,
+        action: action as any, // Cast to enum type
+        resource,
+        metadata: JSON.stringify({
+          ...metadata,
+          userAgent: request.headers.get('user-agent'),
+          referrer: request.headers.get('referer'),
+          timestamp: new Date().toISOString()
+        }),
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: request.headers.get('user-agent'),
+        referrer: request.headers.get('referer')
+      }
+    })
+
+    const response = NextResponse.json({ success: true })
+
+    // Set session ID cookie for anonymous users
+    if (!userId && sessionId) {
+      response.cookies.set('session-id', sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60 // 30 days
+      })
+    }
+
+    return response
+  } catch (error) {
+    console.error('Tracking error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+function generateSessionId(): string {
+  return 'sess_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36)
+} 

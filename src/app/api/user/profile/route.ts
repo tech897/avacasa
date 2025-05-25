@@ -1,0 +1,91 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { prisma } from '@/lib/db'
+import jwt from 'jsonwebtoken'
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const token = request.cookies.get('auth-token')?.value
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Not authenticated' },
+        { status: 401 }
+      )
+    }
+
+    // Verify JWT token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as { userId: string }
+
+    const { name, email, mobile } = await request.json()
+
+    // Validate required fields
+    if (!name || !email) {
+      return NextResponse.json(
+        { error: 'Name and email are required' },
+        { status: 400 }
+      )
+    }
+
+    // Check if email is already taken by another user
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email,
+        NOT: {
+          id: decoded.userId
+        }
+      }
+    })
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'Email is already taken' },
+        { status: 400 }
+      )
+    }
+
+    // Update user
+    const user = await prisma.user.update({
+      where: { id: decoded.userId },
+      data: {
+        name,
+        email,
+        phone: mobile
+      }
+    })
+
+    // Track profile update
+    await prisma.userActivity.create({
+      data: {
+        userId: user.id,
+        action: 'USER_LOGIN',
+        metadata: JSON.stringify({
+          action: 'profile_update',
+          updatedFields: ['name', 'email', 'phone'],
+          userAgent: request.headers.get('user-agent'),
+          ipAddress: request.headers.get('x-forwarded-for') || 'unknown'
+        }),
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: request.headers.get('user-agent')
+      }
+    })
+
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        mobile: user.phone,
+        avatar: user.avatar,
+        verified: user.verified,
+        createdAt: user.createdAt
+      }
+    })
+  } catch (error) {
+    console.error('Profile update error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+} 

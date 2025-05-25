@@ -1,0 +1,401 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Admin and User Authentication Models
+model Admin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String   // hashed password
+  name      String
+  role      AdminRole @default(ADMIN)
+  active    Boolean  @default(true)
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admins")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String?  // hashed password (optional for social login)
+  name      String?
+  phone     String?
+  avatar    String?
+  provider  String?  // google, facebook, email
+  providerId String?
+  verified  Boolean  @default(false)
+  active    Boolean  @default(true)
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  sessions    UserSession[]
+  activities  UserActivity[]
+  inquiries   Inquiry[]
+  favorites   UserFavorite[]
+  ratings     Rating[]
+
+  @@map("users")
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@map("user_sessions")
+}
+
+model UserActivity {
+  id        String       @id @default(cuid())
+  userId    String?
+  user      User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionId String?      // For anonymous tracking
+  action    ActivityType
+  resource  String?      // property_id, location_id, etc.
+  metadata  String?      // JSON string for additional data
+  ipAddress String?
+  userAgent String?
+  referrer  String?
+  createdAt DateTime     @default(now())
+
+  @@map("user_activities")
+}
+
+model UserFavorite {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, propertyId])
+  @@map("user_favorites")
+}
+
+// Rating and Review System
+model Rating {
+  id         String   @id @default(cuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  rating     Int      // 1-5 stars
+  review     String?  // Optional review text
+  name       String   // Name of reviewer (for anonymous reviews)
+  email      String?  // Email of reviewer (optional)
+  verified   Boolean  @default(false) // Whether this is a verified review
+  helpful    Int      @default(0) // Number of helpful votes
+  status     RatingStatus @default(PENDING) // Moderation status
+  adminNotes String?  // Admin notes for moderation
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("ratings")
+}
+
+// Email Marketing
+model EmailSubscriber {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  name        String?
+  source      String?   // newsletter, property_alert, etc.
+  interests   String?   // JSON array of interests
+  active      Boolean   @default(true)
+  verified    Boolean   @default(false)
+  subscribedAt DateTime @default(now())
+  unsubscribedAt DateTime?
+
+  @@map("email_subscribers")
+}
+
+// Existing models with updates
+model Location {
+  id           String     @id @default(cuid())
+  name         String
+  slug         String     @unique
+  description  String
+  image        String
+  coordinates  String     // JSON string {lat: number, lng: number}
+  highlights   String     // JSON array of strings
+  amenities    String     // JSON array of amenity objects
+  featured     Boolean    @default(false)
+  propertyCount Int       @default(0)
+  active       Boolean    @default(true)
+  properties   Property[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@map("locations")
+}
+
+model Property {
+  id           String        @id @default(cuid())
+  title        String
+  slug         String        @unique
+  description  String
+  price        String        // Using String for Decimal compatibility with SQLite
+  location     Location      @relation(fields: [locationId], references: [id])
+  locationId   String
+  propertyType PropertyType
+  bedrooms     Int
+  bathrooms    Int
+  area         Int           // in sqft
+  floors       Int           @default(1)
+  images       String        // JSON array of image URLs
+  amenities    String        // JSON array of amenity objects
+  features     String        // JSON array of feature objects
+  coordinates  String?       // JSON string {lat: number, lng: number}
+  status       PropertyStatus @default(AVAILABLE)
+  featured     Boolean       @default(false)
+  active       Boolean       @default(true)
+  
+  // Unit Configuration
+  unitConfiguration String?   // JSON object with unit details
+  
+  // About the Project
+  aboutProject String?        // Detailed project description
+  
+  // Legal Information
+  legalApprovals String?      // JSON array of legal approvals
+  
+  // Pricing Details
+  registrationCosts String?   // JSON object with cost breakdown
+  
+  // Property Management
+  propertyManagement String?  // JSON object with management details
+  
+  // Financial Returns & Investment Benefits
+  financialReturns String?    // JSON object with ROI details
+  investmentBenefits String?  // JSON array of investment benefits
+  
+  // Near By Social Infrastructure
+  nearbyInfrastructure String? // JSON object with nearby facilities
+  
+  // Additional Details
+  plotSize String?            // Plot size details
+  constructionStatus String?  // Construction status details
+  possessionDate DateTime?    // Expected possession date
+  emiOptions String?          // JSON object with EMI details
+  
+  // SEO and Marketing
+  metaTitle String?
+  metaDescription String?
+  tags String?               // JSON array of tags
+  
+  inquiries    Inquiry[]
+  favorites    UserFavorite[]
+  ratings      Rating[]
+  views        Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("properties")
+}
+
+model Inquiry {
+  id            String       @id @default(cuid())
+  property      Property     @relation(fields: [propertyId], references: [id])
+  propertyId    String
+  userId        String?
+  user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name          String
+  email         String
+  phone         String
+  message       String?
+  preferredDate DateTime?
+  visitType     VisitType    @default(SITE_VISIT)
+  budget        String?
+  status        InquiryStatus @default(NEW)
+  source        String?      // referral source
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@map("inquiries")
+}
+
+model BlogPost {
+  id           String      @id @default(cuid())
+  title        String
+  slug         String      @unique
+  excerpt      String
+  content      String      // Rich text content
+  author       String
+  category     String
+  tags         String      // JSON array of strings
+  featuredImage String
+  featured     Boolean     @default(false)
+  active       Boolean     @default(true)
+  publishedAt  DateTime?
+  status       PostStatus  @default(DRAFT)
+  views        Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("blog_posts")
+}
+
+model ContactSubmission {
+  id        String           @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  subject   String
+  message   String
+  type      ContactType      @default(GENERAL)
+  source    String?          // web_form, phone_call, email, walk_in, etc.
+  status    SubmissionStatus @default(NEW)
+  notes     String?          // Admin notes
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@map("contact_submissions")
+}
+
+model SiteSettings {
+  id        String   @id @default("settings")
+  data      String   // JSON string of all site settings
+  updatedAt DateTime @updatedAt
+
+  @@map("site_settings")
+}
+
+// Analytics and Tracking
+model PageView {
+  id        String   @id @default(cuid())
+  path      String
+  userId    String?
+  sessionId String?
+  ipAddress String?
+  userAgent String?
+  referrer  String?
+  createdAt DateTime @default(now())
+
+  @@map("page_views")
+}
+
+model SearchQuery {
+  id        String   @id @default(cuid())
+  query     String
+  filters   String?  // JSON string of applied filters
+  results   Int      @default(0)
+  userId    String?
+  sessionId String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  @@map("search_queries")
+}
+
+// Enums
+enum AdminRole {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+}
+
+enum ActivityType {
+  PAGE_VIEW
+  PAGE_EXIT
+  SCROLL_DEPTH
+  PROPERTY_VIEW
+  PROPERTY_SEARCH
+  PROPERTY_INQUIRY
+  PROPERTY_FAVORITE
+  LOCATION_VIEW
+  BLOG_VIEW
+  BUTTON_CLICK
+  LINK_CLICK
+  CTA_CLICK
+  FORM_START
+  FORM_COMPLETE
+  DOWNLOAD
+  USER_REGISTER
+  USER_LOGIN
+  EMAIL_SUBSCRIBE
+  CONTACT_SUBMIT
+}
+
+enum PropertyType {
+  HOLIDAY_HOME
+  FARMLAND
+  PLOT
+  VILLA
+  APARTMENT
+  RESIDENTIAL_PLOT
+}
+
+enum PropertyStatus {
+  AVAILABLE
+  SOLD
+  UNDER_CONSTRUCTION
+  COMING_SOON
+}
+
+enum InquiryStatus {
+  NEW
+  CONTACTED
+  SCHEDULED
+  VISITED
+  INTERESTED
+  NEGOTIATING
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum VisitType {
+  SITE_VISIT
+  VIRTUAL_TOUR
+  OFFICE_MEETING
+  CALL_BACK
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ContactType {
+  GENERAL
+  SALES
+  SUPPORT
+  PARTNERSHIP
+  PHONE_INQUIRY
+}
+
+enum SubmissionStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum RatingStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FLAGGED
+}
