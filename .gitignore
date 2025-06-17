@@ -14,7 +14,8 @@
 /coverage
 
 # next.js
-
+/.next/
+/out/
 
 # production
 /build
@@ -22,6 +23,9 @@
 # misc
 .DS_Store
 *.pem
+
+# local env files
+.env*.local
 
 # debug
 npm-debug.log*

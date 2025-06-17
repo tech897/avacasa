@@ -436,7 +436,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "/Users/akashsharma/AkashDocs/avacasa/avacasa-nextjs/src/generated/prisma",
+      "value": "/Users/feniljikadara/Documents/Avcasas/src/generated/prisma",
       "fromEnvVar": null
     },
     "config": {
@@ -450,7 +450,7 @@ const config = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "/Users/akashsharma/AkashDocs/avacasa/avacasa-nextjs/prisma/schema.prisma",
+    "sourceFilePath": "/Users/feniljikadara/Documents/Avcasas/prisma/schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
