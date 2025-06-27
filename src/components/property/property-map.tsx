@@ -48,19 +48,22 @@ export default function PropertyMap({
 
   // Calculate map center and zoom based on properties
   const getMapBounds = () => {
-    if (properties.length === 0) {
+    // Filter properties that have valid coordinates
+    const validProperties = properties.filter(p => p.coordinates && p.coordinates.lat && p.coordinates.lng)
+    
+    if (validProperties.length === 0) {
       return { center: [12.9716, 77.5946], zoom: 6 } // Default to Bangalore
     }
 
-    if (properties.length === 1) {
+    if (validProperties.length === 1) {
       return { 
-        center: [properties[0].coordinates.lat, properties[0].coordinates.lng], 
+        center: [validProperties[0].coordinates.lat, validProperties[0].coordinates.lng], 
         zoom: 12 
       }
     }
 
-    const lats = properties.map(p => p.coordinates.lat)
-    const lngs = properties.map(p => p.coordinates.lng)
+    const lats = validProperties.map(p => p.coordinates.lat)
+    const lngs = validProperties.map(p => p.coordinates.lng)
     
     const centerLat = (Math.max(...lats) + Math.min(...lats)) / 2
     const centerLng = (Math.max(...lngs) + Math.min(...lngs)) / 2
@@ -109,7 +112,9 @@ export default function PropertyMap({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         
-        {properties.map((property) => (
+        {properties
+          .filter(property => property.coordinates && property.coordinates.lat && property.coordinates.lng)
+          .map((property) => (
           <Marker
             key={property.id}
             position={[property.coordinates.lat, property.coordinates.lng]}

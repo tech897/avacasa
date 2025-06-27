@@ -436,7 +436,7 @@ const config = {
       "value": "prisma-client-js"
     },
     "output": {
-      "value": "/Users/feniljikadara/Documents/Avcasas/src/generated/prisma",
+      "value": "/Users/feniljikadara/Documents/Avcasas copy/src/generated/prisma",
       "fromEnvVar": null
     },
     "config": {
@@ -450,7 +450,7 @@ const config = {
       }
     ],
     "previewFeatures": [],
-    "sourceFilePath": "/Users/feniljikadara/Documents/Avcasas/prisma/schema.prisma",
+    "sourceFilePath": "/Users/feniljikadara/Documents/Avcasas copy/prisma/schema.prisma",
     "isCustomOutput": true
   },
   "relativeEnvPaths": {

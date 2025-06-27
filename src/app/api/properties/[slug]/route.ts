@@ -31,6 +31,46 @@ export async function GET(
       data: { views: { increment: 1 } }
     })
 
+    // Parse nearbyInfrastructure and convert strings to proper arrays
+    let nearbyInfrastructure = null;
+    if (property.nearbyInfrastructure) {
+      try {
+        const parsed = JSON.parse(property.nearbyInfrastructure);
+        nearbyInfrastructure = {
+          educational: parsed.education ? 
+            parsed.education.split(',').filter((item: string) => item.trim()).map((item: string) => ({
+              name: item.trim(),
+              distance: 'Contact for details'
+            })) : [],
+          healthcare: parsed.healthcare ? 
+            parsed.healthcare.split(',').filter((item: string) => item.trim()).map((item: string) => ({
+              name: item.trim(),
+              distance: 'Contact for details'
+            })) : [],
+          shopping: parsed.shopping ? 
+            parsed.shopping.split(',').filter((item: string) => item.trim()).map((item: string) => ({
+              name: item.trim(),
+              distance: 'Contact for details'
+            })) : [],
+          transportation: parsed.transport ? [
+            ...(parsed.transport.airport ? [{ name: `Airport: ${parsed.transport.airport}`, distance: 'Contact for details' }] : []),
+            ...(parsed.transport.bus ? [{ name: `Bus: ${parsed.transport.bus}`, distance: 'Contact for details' }] : []),
+            ...(parsed.transport.train ? [{ name: `Train: ${parsed.transport.train}`, distance: 'Contact for details' }] : []),
+            ...(parsed.transport.highway ? [{ name: `Highway: ${parsed.transport.highway}`, distance: 'Contact for details' }] : [])
+          ] : [],
+          attractions: parsed.attractions || []
+        };
+      } catch (e) {
+        nearbyInfrastructure = {
+          educational: [],
+          healthcare: [],
+          shopping: [],
+          transportation: [],
+          attractions: []
+        };
+      }
+    }
+
     // Parse JSON fields
     const parsedProperty = {
       ...property,
@@ -45,7 +85,7 @@ export async function GET(
       propertyManagement: property.propertyManagement ? JSON.parse(property.propertyManagement) : null,
       financialReturns: property.financialReturns ? JSON.parse(property.financialReturns) : null,
       investmentBenefits: property.investmentBenefits ? JSON.parse(property.investmentBenefits) : null,
-      nearbyInfrastructure: property.nearbyInfrastructure ? JSON.parse(property.nearbyInfrastructure) : null,
+      nearbyInfrastructure,
       emiOptions: property.emiOptions ? JSON.parse(property.emiOptions) : null,
       tags: property.tags ? JSON.parse(property.tags) : null,
     }

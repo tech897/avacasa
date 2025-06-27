@@ -5,7 +5,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { PropertyCard } from "@/components/property/property-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Filter, MapPin, Home, Map, Grid3X3 } from "lucide-react"
+import { Search, Filter, MapPin, Home, Map, Grid3X3, ChevronLeft, ChevronRight } from "lucide-react"
 import { PropertyType, PropertyStatus } from "@/types"
 import type { Property, PropertyFilters } from "@/types"
 import dynamic from "next/dynamic"
@@ -18,13 +18,21 @@ const PropertyMap = dynamic(() => import("@/components/property/property-map"), 
   loading: () => <div className="h-full bg-gray-100 animate-pulse rounded-lg" />
 })
 
+interface PaginationData {
+  page: number
+  limit: number
+  total: number
+  pages: number
+}
+
 export default function PropertiesPageContent() {
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
   const [mapView, setMapView] = useState(false)
+  const [pagination, setPagination] = useState<PaginationData | null>(null)
   const [filters, setFilters] = useState<PropertyFilters>({
     page: 1,
-    limit: 12
+    limit: 50
   })
   
   const searchParams = useSearchParams()
@@ -36,7 +44,7 @@ export default function PropertiesPageContent() {
   useEffect(() => {
     const urlFilters: PropertyFilters = {
       page: 1,
-      limit: 12
+      limit: 50
     }
 
     // Handle property type parameter (both 'type' and 'propertyType')
@@ -111,6 +119,7 @@ export default function PropertiesPageContent() {
         const result = await response.json()
         if (result.success) {
           setProperties(result.data)
+          setPagination(result.pagination)
         }
       }
     } catch (error) {
@@ -139,7 +148,7 @@ export default function PropertiesPageContent() {
   }
 
   const handleFilterChange = (newFilters: Partial<PropertyFilters>) => {
-    const updatedFilters = { ...filters, ...newFilters }
+    const updatedFilters = { ...filters, ...newFilters, page: 1 } // Reset to page 1 on filter change
     setFilters(updatedFilters)
     updateURL(updatedFilters)
     
@@ -148,6 +157,12 @@ export default function PropertiesPageContent() {
       ...updatedFilters,
       source: 'filter_change'
     })
+  }
+
+  const handlePageChange = (page: number) => {
+    const updatedFilters = { ...filters, page }
+    setFilters(updatedFilters)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   // Helper function to update URL parameters
@@ -265,7 +280,7 @@ export default function PropertiesPageContent() {
           <h1 className="text-2xl font-bold text-gray-900">
             {filters.search ? `Search Results for "${filters.search}"` : 'All Properties'}
             <span className="text-gray-500 font-normal ml-2">
-              ({filteredProperties.length} properties)
+              ({pagination?.total || filteredProperties.length} properties)
             </span>
           </h1>
         </div>
@@ -281,11 +296,73 @@ export default function PropertiesPageContent() {
                 ))}
               </div>
             ) : filteredProperties.length > 0 ? (
-              <div className={`grid grid-cols-1 ${mapView ? 'md:grid-cols-1 lg:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-3'} gap-6`}>
-                {filteredProperties.map((property) => (
-                  <PropertyCard key={property.id} property={property} />
-                ))}
-              </div>
+              <>
+                <div className={`grid grid-cols-1 ${mapView ? 'md:grid-cols-1 lg:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-3'} gap-6`}>
+                  {filteredProperties.map((property) => (
+                    <PropertyCard key={property.id} property={property} />
+                  ))}
+                </div>
+
+                {/* Pagination Controls */}
+                {pagination && pagination.pages > 1 && (
+                  <div className="flex justify-center items-center mt-12 gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(filters.page - 1)}
+                      disabled={filters.page === 1}
+                      className="flex items-center gap-1"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Previous
+                    </Button>
+                    
+                    <div className="flex gap-1">
+                      {[...Array(pagination.pages)].map((_, i) => {
+                        const page = i + 1
+                        if (
+                          page === 1 ||
+                          page === pagination.pages ||
+                          (page >= filters.page - 1 && page <= filters.page + 1)
+                        ) {
+                          return (
+                            <Button
+                              key={page}
+                              variant={page === filters.page ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => handlePageChange(page)}
+                              className="w-10"
+                            >
+                              {page}
+                            </Button>
+                          )
+                        } else if (page === filters.page - 2 || page === filters.page + 2) {
+                          return <span key={page} className="px-2">...</span>
+                        }
+                        return null
+                      })}
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(filters.page + 1)}
+                      disabled={filters.page === pagination.pages}
+                      className="flex items-center gap-1"
+                    >
+                      Next
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+
+                {/* Pagination Info */}
+                {pagination && (
+                  <div className="text-center mt-4 text-sm text-gray-600">
+                    Showing {((filters.page - 1) * pagination.limit) + 1} to {Math.min(filters.page * pagination.limit, pagination.total)} of {pagination.total} properties
+                  </div>
+                )}
+              </>
             ) : (
               <div className="text-center py-12">
                 <Home className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -294,7 +371,7 @@ export default function PropertiesPageContent() {
                   Try adjusting your search criteria or browse all properties.
                 </p>
                 <Button onClick={() => {
-                  const resetFilters = { page: 1, limit: 12 }
+                  const resetFilters = { page: 1, limit: 50 }
                   setFilters(resetFilters)
                   updateURL(resetFilters)
                 }}>
