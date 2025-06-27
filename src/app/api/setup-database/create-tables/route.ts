@@ -7,23 +7,10 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🚀 Creating database tables...')
     
-    // Create tables using raw SQL (simplified version of Prisma schema)
-    const createTablesSQL = `
-      -- Create admins table
-      CREATE TABLE IF NOT EXISTS "admins" (
-        "id" TEXT NOT NULL PRIMARY KEY,
-        "email" TEXT NOT NULL UNIQUE,
-        "password" TEXT NOT NULL,
-        "name" TEXT NOT NULL,
-        "role" TEXT NOT NULL DEFAULT 'ADMIN',
-        "active" BOOLEAN NOT NULL DEFAULT true,
-        "lastLogin" TIMESTAMP,
-        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-
-      -- Create locations table
-      CREATE TABLE IF NOT EXISTS "locations" (
+    // Create tables using individual SQL commands (PostgreSQL doesn't allow multiple commands)
+    const createTableCommands = [
+      // Create locations table first (referenced by properties)
+      `CREATE TABLE IF NOT EXISTS "locations" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "name" TEXT NOT NULL,
         "slug" TEXT NOT NULL UNIQUE,
@@ -37,10 +24,27 @@ export async function POST(request: NextRequest) {
         "active" BOOLEAN NOT NULL DEFAULT true,
         "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
+      )`,
 
-      -- Create properties table
-      CREATE TABLE IF NOT EXISTS "properties" (
+      // Create users table (referenced by other tables)
+      `CREATE TABLE IF NOT EXISTS "users" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "email" TEXT NOT NULL UNIQUE,
+        "password" TEXT,
+        "name" TEXT,
+        "phone" TEXT,
+        "avatar" TEXT,
+        "provider" TEXT,
+        "providerId" TEXT,
+        "verified" BOOLEAN NOT NULL DEFAULT false,
+        "active" BOOLEAN NOT NULL DEFAULT true,
+        "lastLogin" TIMESTAMP,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+
+      // Create properties table (references locations)
+      `CREATE TABLE IF NOT EXISTS "properties" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "title" TEXT NOT NULL,
         "slug" TEXT NOT NULL UNIQUE,
@@ -76,29 +80,24 @@ export async function POST(request: NextRequest) {
         "tags" TEXT,
         "views" INTEGER NOT NULL DEFAULT 0,
         "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "properties_locationId_fkey" FOREIGN KEY ("locationId") REFERENCES "locations" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
-      );
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
 
-      -- Create users table
-      CREATE TABLE IF NOT EXISTS "users" (
+      // Create admins table
+      `CREATE TABLE IF NOT EXISTS "admins" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "email" TEXT NOT NULL UNIQUE,
-        "password" TEXT,
-        "name" TEXT,
-        "phone" TEXT,
-        "avatar" TEXT,
-        "provider" TEXT,
-        "providerId" TEXT,
-        "verified" BOOLEAN NOT NULL DEFAULT false,
+        "password" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "role" TEXT NOT NULL DEFAULT 'ADMIN',
         "active" BOOLEAN NOT NULL DEFAULT true,
         "lastLogin" TIMESTAMP,
         "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
+      )`,
 
-      -- Create ratings table
-      CREATE TABLE IF NOT EXISTS "ratings" (
+      // Create ratings table (references properties and users)
+      `CREATE TABLE IF NOT EXISTS "ratings" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "propertyId" TEXT NOT NULL,
         "userId" TEXT,
@@ -111,13 +110,11 @@ export async function POST(request: NextRequest) {
         "status" TEXT NOT NULL DEFAULT 'PENDING',
         "adminNotes" TEXT,
         "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "ratings_propertyId_fkey" FOREIGN KEY ("propertyId") REFERENCES "properties" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-        CONSTRAINT "ratings_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE SET NULL ON UPDATE CASCADE
-      );
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
 
-      -- Create user_activities table
-      CREATE TABLE IF NOT EXISTS "user_activities" (
+      // Create user_activities table
+      `CREATE TABLE IF NOT EXISTS "user_activities" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "userId" TEXT,
         "sessionId" TEXT,
@@ -127,33 +124,28 @@ export async function POST(request: NextRequest) {
         "ipAddress" TEXT,
         "userAgent" TEXT,
         "referrer" TEXT,
-        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "user_activities_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE SET NULL ON UPDATE CASCADE
-      );
+        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
 
-      -- Create other necessary tables
-      CREATE TABLE IF NOT EXISTS "user_sessions" (
+      // Create other tables
+      `CREATE TABLE IF NOT EXISTS "user_sessions" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "userId" TEXT NOT NULL,
         "token" TEXT NOT NULL UNIQUE,
         "ipAddress" TEXT,
         "userAgent" TEXT,
         "expiresAt" TIMESTAMP NOT NULL,
-        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "user_sessions_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
-      );
+        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
 
-      CREATE TABLE IF NOT EXISTS "user_favorites" (
+      `CREATE TABLE IF NOT EXISTS "user_favorites" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "userId" TEXT NOT NULL,
         "propertyId" TEXT NOT NULL,
-        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "user_favorites_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-        CONSTRAINT "user_favorites_propertyId_fkey" FOREIGN KEY ("propertyId") REFERENCES "properties" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
-        CONSTRAINT "user_favorites_userId_propertyId_key" UNIQUE ("userId", "propertyId")
-      );
+        "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
 
-      CREATE TABLE IF NOT EXISTS "inquiries" (
+      `CREATE TABLE IF NOT EXISTS "inquiries" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "propertyId" TEXT NOT NULL,
         "userId" TEXT,
@@ -167,12 +159,10 @@ export async function POST(request: NextRequest) {
         "status" TEXT NOT NULL DEFAULT 'NEW',
         "source" TEXT,
         "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT "inquiries_propertyId_fkey" FOREIGN KEY ("propertyId") REFERENCES "properties" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
-        CONSTRAINT "inquiries_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users" ("id") ON DELETE SET NULL ON UPDATE CASCADE
-      );
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
 
-      CREATE TABLE IF NOT EXISTS "blog_posts" (
+      `CREATE TABLE IF NOT EXISTS "blog_posts" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "title" TEXT NOT NULL,
         "slug" TEXT NOT NULL UNIQUE,
@@ -189,9 +179,9 @@ export async function POST(request: NextRequest) {
         "views" INTEGER NOT NULL DEFAULT 0,
         "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
+      )`,
 
-      CREATE TABLE IF NOT EXISTS "contact_submissions" (
+      `CREATE TABLE IF NOT EXISTS "contact_submissions" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "name" TEXT NOT NULL,
         "email" TEXT,
@@ -204,9 +194,9 @@ export async function POST(request: NextRequest) {
         "notes" TEXT,
         "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
+      )`,
 
-      CREATE TABLE IF NOT EXISTS "email_subscribers" (
+      `CREATE TABLE IF NOT EXISTS "email_subscribers" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "email" TEXT NOT NULL UNIQUE,
         "name" TEXT,
@@ -216,15 +206,15 @@ export async function POST(request: NextRequest) {
         "verified" BOOLEAN NOT NULL DEFAULT false,
         "subscribedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         "unsubscribedAt" TIMESTAMP
-      );
+      )`,
 
-      CREATE TABLE IF NOT EXISTS "site_settings" (
+      `CREATE TABLE IF NOT EXISTS "site_settings" (
         "id" TEXT NOT NULL PRIMARY KEY DEFAULT 'settings',
         "data" TEXT NOT NULL,
         "updatedAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
+      )`,
 
-      CREATE TABLE IF NOT EXISTS "page_views" (
+      `CREATE TABLE IF NOT EXISTS "page_views" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "path" TEXT NOT NULL,
         "userId" TEXT,
@@ -233,9 +223,9 @@ export async function POST(request: NextRequest) {
         "userAgent" TEXT,
         "referrer" TEXT,
         "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
+      )`,
 
-      CREATE TABLE IF NOT EXISTS "search_queries" (
+      `CREATE TABLE IF NOT EXISTS "search_queries" (
         "id" TEXT NOT NULL PRIMARY KEY,
         "query" TEXT NOT NULL,
         "filters" TEXT,
@@ -244,11 +234,15 @@ export async function POST(request: NextRequest) {
         "sessionId" TEXT,
         "ipAddress" TEXT,
         "createdAt" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-    `;
+      )`
+    ];
 
-    // Execute the SQL
-    await prisma.$executeRawUnsafe(createTablesSQL)
+    // Execute each SQL command separately
+    for (let i = 0; i < createTableCommands.length; i++) {
+      const command = createTableCommands[i];
+      console.log(`Creating table ${i + 1}/${createTableCommands.length}...`);
+      await prisma.$executeRawUnsafe(command);
+    }
     
     console.log('✅ Database tables created successfully!')
     
