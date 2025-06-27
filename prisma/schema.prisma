@@ -10,7 +10,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -156,7 +156,7 @@ model Property {
   title        String
   slug         String        @unique
   description  String
-  price        String        // Using String for Decimal compatibility with SQLite
+  price        String        // Price as string to handle various formats
   location     Location      @relation(fields: [locationId], references: [id])
   locationId   String
   propertyType PropertyType
