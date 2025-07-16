@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useRef } from 'react'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { useEffect, useRef, useCallback, useState } from 'react'
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { formatCurrency } from '@/lib/utils'
@@ -16,16 +16,16 @@ L.Icon.Default.mergeOptions({
 })
 
 // Create custom price marker icon
-const createPriceIcon = (price: number, featured: boolean = false) => {
+const createPriceIcon = (price: number, featured: boolean = false, isSelected: boolean = false) => {
   const priceText = formatCurrency(price).replace('₹', '')
   return L.divIcon({
     className: 'custom-price-marker',
     html: `
       <div class="relative">
-        <div class="bg-white ${featured ? 'border-2 border-primary' : 'border border-gray-300'} rounded-full px-3 py-1 shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
-          <span class="text-sm font-semibold ${featured ? 'text-primary' : 'text-gray-900'}">₹${priceText}</span>
+        <div class="bg-white ${featured ? 'border-2 border-primary' : isSelected ? 'border-2 border-blue-500' : 'border border-gray-300'} rounded-full px-3 py-1 shadow-lg hover:shadow-xl transition-all transform hover:scale-105 cursor-pointer ${isSelected ? 'ring-2 ring-blue-300' : ''}">
+          <span class="text-sm font-semibold ${featured ? 'text-primary' : isSelected ? 'text-blue-600' : 'text-gray-900'}">₹${priceText}</span>
         </div>
-        <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent ${featured ? 'border-t-primary' : 'border-t-white'}"></div>
+        <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent ${featured ? 'border-t-primary' : isSelected ? 'border-t-blue-500' : 'border-t-white'}"></div>
       </div>
     `,
     iconSize: [80, 40],
@@ -33,21 +33,84 @@ const createPriceIcon = (price: number, featured: boolean = false) => {
   })
 }
 
+interface MapBounds {
+  north: number
+  south: number
+  east: number
+  west: number
+}
+
 interface PropertyMapProps {
   properties: Property[]
   selectedProperty?: Property | null
   onPropertySelect?: (property: Property) => void
+  onBoundsChange?: (bounds: MapBounds) => void
+  center?: [number, number]
+  zoom?: number
+}
+
+// Component to handle map events
+function MapEventHandler({ 
+  onBoundsChange, 
+  onMapReady 
+}: { 
+  onBoundsChange?: (bounds: MapBounds) => void
+  onMapReady?: (map: L.Map) => void
+}) {
+  const map = useMapEvents({
+    moveend: () => {
+      if (onBoundsChange) {
+        const bounds = map.getBounds()
+        const mapBounds: MapBounds = {
+          north: bounds.getNorth(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          west: bounds.getWest()
+        }
+        onBoundsChange(mapBounds)
+      }
+    },
+    zoomend: () => {
+      if (onBoundsChange) {
+        const bounds = map.getBounds()
+        const mapBounds: MapBounds = {
+          north: bounds.getNorth(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          west: bounds.getWest()
+        }
+        onBoundsChange(mapBounds)
+      }
+    }
+  })
+
+  useEffect(() => {
+    if (onMapReady) {
+      onMapReady(map)
+    }
+  }, [map, onMapReady])
+
+  return null
 }
 
 export default function PropertyMap({ 
   properties, 
   selectedProperty, 
-  onPropertySelect 
+  onPropertySelect,
+  onBoundsChange,
+  center: propCenter,
+  zoom: propZoom
 }: PropertyMapProps) {
   const mapRef = useRef<any>(null)
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null)
 
-  // Calculate map center and zoom based on properties
-  const getMapBounds = () => {
+  // Calculate map center and zoom based on properties if not provided
+  const getMapBounds = useCallback(() => {
+    // If specific center and zoom are provided, use them
+    if (propCenter && propZoom) {
+      return { center: propCenter, zoom: propZoom }
+    }
+
     // Filter properties that have valid coordinates
     const validProperties = properties.filter(p => p.coordinates && p.coordinates.lat && p.coordinates.lng)
     
@@ -69,9 +132,32 @@ export default function PropertyMap({
     const centerLng = (Math.max(...lngs) + Math.min(...lngs)) / 2
     
     return { center: [centerLat, centerLng], zoom: 8 }
-  }
+  }, [properties, propCenter, propZoom])
 
   const { center, zoom } = getMapBounds()
+
+  // Handle initial bounds change when map is ready
+  const handleMapReady = useCallback((map: L.Map) => {
+    setMapInstance(map)
+    if (onBoundsChange) {
+      const bounds = map.getBounds()
+      const mapBounds: MapBounds = {
+        north: bounds.getNorth(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        west: bounds.getWest()
+      }
+      onBoundsChange(mapBounds)
+    }
+  }, [onBoundsChange])
+
+  // Fit map to show selected property
+  useEffect(() => {
+    if (selectedProperty && selectedProperty.coordinates && mapInstance) {
+      const { lat, lng } = selectedProperty.coordinates
+      mapInstance.setView([lat, lng], 15, { animate: true })
+    }
+  }, [selectedProperty, mapInstance])
 
   useEffect(() => {
     // Add custom CSS for price markers
@@ -80,6 +166,9 @@ export default function PropertyMap({
       .custom-price-marker {
         background: transparent !important;
         border: none !important;
+      }
+      .custom-price-marker:hover {
+        z-index: 1000 !important;
       }
       .leaflet-popup-content-wrapper {
         border-radius: 12px;
@@ -90,6 +179,30 @@ export default function PropertyMap({
         border-radius: 12px;
         overflow: hidden;
       }
+      .leaflet-popup-close-button {
+        display: none !important;
+      }
+      /* Enhanced popup image styles */
+      .custom-popup .group\/image:hover img {
+        transform: scale(1.05);
+      }
+      .custom-popup .group\/image {
+        overflow: hidden;
+      }
+      /* Smooth popup animations */
+      .leaflet-popup {
+        animation: popup-fade-in 0.3s ease-out;
+      }
+      @keyframes popup-fade-in {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
     `
     document.head.appendChild(style)
 
@@ -99,84 +212,122 @@ export default function PropertyMap({
   }, [])
 
   return (
-    <div className="h-full w-full">
+    <div className="h-full w-full relative">
       <MapContainer
         ref={mapRef}
         center={center as [number, number]}
         zoom={zoom}
         style={{ height: '100%', width: '100%' }}
         className="z-0"
+        zoomControl={true}
+        scrollWheelZoom={true}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
         
+        <MapEventHandler 
+          onBoundsChange={onBoundsChange}
+          onMapReady={handleMapReady}
+        />
+        
         {properties
           .filter(property => property.coordinates && property.coordinates.lat && property.coordinates.lng)
-          .map((property) => (
-          <Marker
-            key={property.id}
-            position={[property.coordinates.lat, property.coordinates.lng]}
-            icon={createPriceIcon(property.price, property.featured)}
-            eventHandlers={{
-              click: () => onPropertySelect?.(property),
-            }}
-          >
-            <Popup className="custom-popup" closeButton={false}>
-              <div className="w-64 p-0">
-                <div className="relative aspect-[4/3] mb-3">
-                  <img
-                    src={property.images[0] || `https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80`}
-                    alt={property.title}
-                    className="w-full h-full object-cover rounded-t-lg"
-                  />
-                  {property.featured && (
-                    <div className="absolute top-2 right-2">
-                      <span className="bg-primary text-white px-2 py-1 rounded text-xs font-medium">
-                        Featured
-                      </span>
+          .map((property) => {
+            const isSelected = selectedProperty?.id === property.id
+            return (
+              <Marker
+                key={property.id}
+                position={[property.coordinates.lat, property.coordinates.lng]}
+                icon={createPriceIcon(property.price, property.featured, isSelected)}
+                zIndexOffset={isSelected ? 1000 : property.featured ? 100 : 0}
+                eventHandlers={{
+                  click: () => onPropertySelect?.(property),
+                }}
+              >
+                <Popup className="custom-popup" closeButton={false} autoClose={false}>
+                  <div className="w-64 p-0">
+                    <div className="relative aspect-[4/3] mb-3 cursor-pointer group/image">
+                      <img
+                        src={property.images[0] || `https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80`}
+                        alt={property.title}
+                        className="w-full h-full object-cover rounded-t-lg transition-transform duration-300 group-hover/image:scale-105"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          window.open(`/properties/${property.slug}`, '_blank')
+                        }}
+                      />
+                      {/* Overlay with view details hint */}
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/image:opacity-100 transition-opacity duration-300 rounded-t-lg flex items-center justify-center">
+                        <div className="bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm font-medium text-gray-900 transform translate-y-2 group-hover/image:translate-y-0 transition-transform duration-300">
+                          <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                          View Details
+                        </div>
+                      </div>
+                      
+                      {property.featured && (
+                        <div className="absolute top-2 right-2">
+                          <span className="bg-primary text-white px-2 py-1 rounded text-xs font-medium">
+                            Featured
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                
-                <div className="px-3 pb-3">
-                  <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1">
-                    {property.title}
-                  </h3>
-                  
-                  <p className="text-sm text-gray-600 mb-2 line-clamp-1">
-                    {property.location.name}
-                  </p>
-                  
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex gap-3 text-xs text-gray-500">
-                      <span>{property.bedrooms} beds</span>
-                      <span>{property.bathrooms} baths</span>
-                      <span>{property.area} sqft</span>
+                    
+                    <div className="px-3 pb-3">
+                      <h3 className="font-semibold text-gray-900 mb-1 line-clamp-1">
+                        {property.title}
+                      </h3>
+                      
+                      <p className="text-sm text-gray-600 mb-2 line-clamp-1">
+                        {property.location.name}
+                      </p>
+                      
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex gap-3 text-xs text-gray-500">
+                          <span>{property.bedrooms} beds</span>
+                          <span>{property.bathrooms} baths</span>
+                          <span>{property.area} sqft</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-lg font-bold text-primary">
+                          {formatCurrency(property.price)}
+                        </span>
+                        <button 
+                          className="bg-primary text-white px-3 py-1 rounded text-sm hover:bg-primary/90 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            window.open(`/properties/${property.slug}`, '_blank')
+                          }}
+                        >
+                          View Details
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold text-primary">
-                      {formatCurrency(property.price)}
-                    </span>
-                    <button 
-                      className="bg-primary text-white px-3 py-1 rounded text-sm hover:bg-primary/90 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        window.open(`/properties/${property.slug}`, '_blank')
-                      }}
-                    >
-                      View Details
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+                </Popup>
+              </Marker>
+            )
+          })}
       </MapContainer>
+      
+      {/* Map control overlay */}
+      <div className="absolute top-4 right-4 z-[1000]">
+        <div className="bg-white rounded-lg shadow-md p-2 text-sm text-gray-600">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 bg-primary rounded-full"></div>
+            <span>Featured</span>
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            {properties.length} properties shown
+          </div>
+        </div>
+      </div>
     </div>
   )
 } 

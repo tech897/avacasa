@@ -14,9 +14,10 @@ interface PropertyCardProps {
   property: Property
   showFavorite?: boolean
   showShare?: boolean
+  isSelected?: boolean
 }
 
-export function PropertyCard({ property, showFavorite = true, showShare = true }: PropertyCardProps) {
+export function PropertyCard({ property, showFavorite = true, showShare = true, isSelected = false }: PropertyCardProps) {
   const { user } = useAuth()
   const [isFavorited, setIsFavorited] = useState(false)
   const [favoriteLoading, setFavoriteLoading] = useState(false)
@@ -113,7 +114,11 @@ export function PropertyCard({ property, showFavorite = true, showShare = true }
   }
 
   return (
-    <Card className="group overflow-hidden hover:shadow-2xl transition-all duration-500 ease-out hover:-translate-y-2 border-0 bg-white">
+    <Card className={`group overflow-hidden hover:shadow-2xl transition-all duration-500 ease-out hover:-translate-y-2 border-0 bg-white ${
+      isSelected 
+        ? 'ring-2 ring-blue-500 shadow-xl transform scale-[1.02] bg-blue-50/30' 
+        : ''
+    }`}>
       <div className="relative">
         <Link href={`/properties/${property.slug}`}>
           <div className="aspect-[4/3] overflow-hidden">

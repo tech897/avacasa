@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import { Search, MapPin, Home, Trees, Square, Building, Loader2, X } from "lucide-react"
+import { Search, MapPin, Home, Trees, Square, Building, Loader2, X, Brain, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 
@@ -16,12 +16,37 @@ interface Suggestion {
   icon: string
 }
 
+interface ParsedQuery {
+  bedrooms?: number
+  propertyType?: string
+  location?: string
+  minPrice?: number
+  maxPrice?: number
+  amenities?: string[]
+  features?: string[]
+  keywords?: string[]
+  originalQuery: string
+  confidence: number
+}
+
+interface SearchFilters {
+  location?: string
+  propertyType?: string
+  bedrooms?: number
+  minPrice?: number
+  maxPrice?: number
+  keywords?: string[]
+  isNaturalLanguage?: boolean
+}
+
 interface OptimizedSearchProps {
   placeholder?: string
   className?: string
-  onSearch?: (query: string, filters?: any) => void
+  onSearch?: (query: string, filters?: SearchFilters) => void
   showPropertyType?: boolean
   variant?: 'hero' | 'header' | 'page'
+  enableNaturalLanguage?: boolean
+  showParsedQuery?: boolean
 }
 
 const iconMap = {
@@ -37,7 +62,9 @@ export function OptimizedSearch({
   className = "",
   onSearch,
   showPropertyType = true,
-  variant = 'hero'
+  variant = 'hero',
+  enableNaturalLanguage = true,
+  showParsedQuery = true
 }: OptimizedSearchProps) {
   const [query, setQuery] = useState("")
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
@@ -45,11 +72,15 @@ export function OptimizedSearch({
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [selectedPropertyType, setSelectedPropertyType] = useState("")
+  const [parsedQuery, setParsedQuery] = useState<ParsedQuery | null>(null)
+  const [isNaturalLanguage, setIsNaturalLanguage] = useState(false)
+  const [parseLoading, setParseLoading] = useState(false)
   
   const searchRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
+  const parseDebounceRef = useRef<NodeJS.Timeout | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   
   const router = useRouter()
@@ -63,6 +94,68 @@ export function OptimizedSearch({
     { key: 'PLOT', label: 'Plots' },
     { key: 'APARTMENT', label: 'Apartments' }
   ]
+
+  // Detect if query looks like natural language
+  const detectNaturalLanguage = (searchTerm: string): boolean => {
+    const nlPatterns = [
+      /\d+\s*bhk/i,  // "2 bhk", "3bhk"
+      /\d+\s*bedroom/i,  // "2 bedroom"
+      /under|below|above|over|between/i,  // Price patterns
+      /\d+\s*(crore|lakh|cr|lac)/i,  // Indian currency
+      /in\s+\w+/i,  // "in goa", "in bangalore"
+      /holiday\s+home|farm\s*land|villa|apartment/i  // Property types
+    ]
+    
+    return nlPatterns.some(pattern => pattern.test(searchTerm)) && searchTerm.split(' ').length >= 3
+  }
+
+  // Parse natural language query
+  const parseNaturalLanguage = useCallback(async (searchTerm: string) => {
+    if (!enableNaturalLanguage || !searchTerm.trim() || searchTerm.length < 10) {
+      setParsedQuery(null)
+      setIsNaturalLanguage(false)
+      return
+    }
+
+    const isNL = detectNaturalLanguage(searchTerm)
+    setIsNaturalLanguage(isNL)
+
+    if (!isNL) {
+      setParsedQuery(null)
+      return
+    }
+
+    try {
+      setParseLoading(true)
+      const response = await fetch('/api/search/natural-language', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: searchTerm })
+      })
+      
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setParsedQuery(data.data.parsed)
+        }
+      }
+    } catch (error) {
+      console.error('Natural language parsing error:', error)
+    } finally {
+      setParseLoading(false)
+    }
+  }, [enableNaturalLanguage])
+
+  // Debounced natural language parsing
+  const debouncedNLParse = useCallback((searchTerm: string) => {
+    if (parseDebounceRef.current) {
+      clearTimeout(parseDebounceRef.current)
+    }
+    
+    parseDebounceRef.current = setTimeout(() => {
+      parseNaturalLanguage(searchTerm)
+    }, 500) // 500ms delay for NL parsing
+  }, [parseNaturalLanguage])
 
   // Debounced search function
   const debouncedSearch = useCallback(async (searchTerm: string) => {
@@ -108,15 +201,23 @@ export function OptimizedSearch({
     setQuery(value)
     setSelectedIndex(-1)
     
-    // Clear previous debounce
+    // Clear previous debounces
     if (debounceRef.current) {
       clearTimeout(debounceRef.current)
     }
+    if (parseDebounceRef.current) {
+      clearTimeout(parseDebounceRef.current)
+    }
     
-    // Set new debounce
+    // Set new debounces
     debounceRef.current = setTimeout(() => {
       debouncedSearch(value)
-    }, 300) // 300ms debounce
+    }, 300) // 300ms debounce for suggestions
+    
+    // Natural language parsing with longer delay
+    if (enableNaturalLanguage) {
+      debouncedNLParse(value)
+    }
   }
 
   // Handle suggestion selection
@@ -141,6 +242,43 @@ export function OptimizedSearch({
     const searchTerm = searchQuery || query
     if (!searchTerm.trim()) return
 
+    // If we have a parsed natural language query, use its parameters
+    if (isNaturalLanguage && parsedQuery && parsedQuery.confidence > 30) {
+      const params = new URLSearchParams()
+      
+      if (parsedQuery.location) params.set('location', parsedQuery.location)
+      if (parsedQuery.propertyType) params.set('propertyType', parsedQuery.propertyType)
+      if (parsedQuery.bedrooms) params.set('bedrooms', parsedQuery.bedrooms.toString())
+      if (parsedQuery.minPrice) params.set('minPrice', parsedQuery.minPrice.toString())
+      if (parsedQuery.maxPrice) params.set('maxPrice', parsedQuery.maxPrice.toString())
+      // Only include keywords as search if they exist and are different from the original query
+      if (parsedQuery.keywords && parsedQuery.keywords.length > 0) {
+        const keywordSearch = parsedQuery.keywords.join(' ')
+        if (keywordSearch.toLowerCase() !== searchTerm.toLowerCase()) {
+          params.set('search', keywordSearch)
+        }
+      }
+      
+      if (onSearch) {
+        // For natural language, don't pass the original search term, only use parsed keywords
+        const searchKeywords = parsedQuery.keywords && parsedQuery.keywords.length > 0 
+          ? parsedQuery.keywords.join(' ') 
+          : ''
+        
+        onSearch(searchKeywords, {
+          location: parsedQuery.location,
+          propertyType: parsedQuery.propertyType,
+          bedrooms: parsedQuery.bedrooms,
+          minPrice: parsedQuery.minPrice,
+          maxPrice: parsedQuery.maxPrice,
+          keywords: parsedQuery.keywords,
+          isNaturalLanguage: true
+        })
+      } else {
+        router.push(`/properties?${params.toString()}`)
+      }
+    } else {
+      // Fallback to regular search
     const params = new URLSearchParams()
     params.set('search', searchTerm)
     
@@ -154,6 +292,7 @@ export function OptimizedSearch({
       onSearch(searchTerm, { propertyType: propertyTypeFilter || selectedPropertyType })
     } else {
       router.push(`/properties?${params.toString()}`)
+      }
     }
     
     setShowSuggestions(false)
@@ -209,6 +348,9 @@ export function OptimizedSearch({
       if (debounceRef.current) {
         clearTimeout(debounceRef.current)
       }
+      if (parseDebounceRef.current) {
+        clearTimeout(parseDebounceRef.current)
+      }
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
@@ -218,6 +360,18 @@ export function OptimizedSearch({
   const getIconComponent = (iconName: string) => {
     const IconComponent = iconMap[iconName as keyof typeof iconMap] || Home
     return IconComponent
+  }
+
+  // Format price for display
+  const formatPrice = (price: number): string => {
+    if (price >= 10000000) {
+      return `${(price / 10000000).toFixed(1)} Cr`
+    } else if (price >= 100000) {
+      return `${(price / 100000).toFixed(1)} L`
+    } else if (price >= 1000) {
+      return `${(price / 1000).toFixed(1)} K`
+    }
+    return price.toString()
   }
 
   return (
@@ -275,16 +429,21 @@ export function OptimizedSearch({
                     }
                   `}
                 />
-                {isLoading && (
+                {(isLoading || parseLoading) && (
                   <Loader2 className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 animate-spin text-gray-400" />
                 )}
-                {query && !isLoading && (
+                {isNaturalLanguage && enableNaturalLanguage && !parseLoading && !isLoading && (
+                  <Brain className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-500" />
+                )}
+                {query && !isLoading && !parseLoading && !isNaturalLanguage && (
                   <button
                     type="button"
                     onClick={() => {
                       setQuery("")
                       setSuggestions([])
                       setShowSuggestions(false)
+                      setParsedQuery(null)
+                      setIsNaturalLanguage(false)
                       inputRef.current?.focus()
                     }}
                     className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 hover:text-gray-600"
@@ -343,6 +502,43 @@ export function OptimizedSearch({
           </div>
         </div>
       </form>
+
+      {/* Natural Language Parsed Query Display */}
+      {showParsedQuery && isNaturalLanguage && parsedQuery && parsedQuery.confidence > 30 && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 z-40">
+          <div className="flex items-start gap-3">
+            <CheckCircle className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-blue-900 mb-1">
+                Natural Language Detected ({parsedQuery.confidence}% confidence)
+              </div>
+              <div className="text-xs text-blue-700 space-y-1">
+                {parsedQuery.bedrooms && (
+                  <div>• Bedrooms: {parsedQuery.bedrooms}</div>
+                )}
+                {parsedQuery.propertyType && (
+                  <div>• Type: {parsedQuery.propertyType.replace('_', ' ').toLowerCase()}</div>
+                )}
+                {parsedQuery.location && (
+                  <div>• Location: {parsedQuery.location}</div>
+                )}
+                {(parsedQuery.minPrice || parsedQuery.maxPrice) && (
+                  <div>• Price: {
+                    parsedQuery.minPrice && parsedQuery.maxPrice 
+                      ? `₹${formatPrice(parsedQuery.minPrice)} - ₹${formatPrice(parsedQuery.maxPrice)}`
+                      : parsedQuery.maxPrice 
+                      ? `Under ₹${formatPrice(parsedQuery.maxPrice)}`
+                      : `Above ₹${formatPrice(parsedQuery.minPrice!)}`
+                  }</div>
+                )}
+                {parsedQuery.keywords && parsedQuery.keywords.length > 0 && (
+                  <div>• Keywords: {parsedQuery.keywords.join(', ')}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Suggestions Dropdown */}
       {showSuggestions && suggestions.length > 0 && (

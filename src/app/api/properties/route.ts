@@ -13,12 +13,48 @@ const querySchema = z.object({
   limit: z.coerce.number().default(50),
   featured: z.coerce.boolean().optional(),
   search: z.string().optional(),
+  // Map bounds filtering
+  bounds: z.string().optional(), // JSON string with {north, south, east, west}
 })
+
+// Helper function to check if coordinates are within bounds
+function isWithinBounds(coordinates: any, bounds: any): boolean {
+  if (!coordinates || !coordinates.lat || !coordinates.lng) return false
+  if (!bounds) return true
+
+  const { lat, lng } = coordinates
+  const { north, south, east, west } = bounds
+
+  return lat >= south && lat <= north && lng >= west && lng <= east
+}
+
+// --- New helpers ---
+function toRad (deg: number) { return (deg * Math.PI) / 180 }
+function haversine (lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371 // km
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return R * c
+}
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const query = querySchema.parse(Object.fromEntries(searchParams))
+    
+
+    
+    // Parse bounds if provided
+    let boundsFilter = null
+    if (query.bounds) {
+      try {
+        boundsFilter = JSON.parse(query.bounds)
+      } catch (e) {
+        console.warn('Invalid bounds format:', query.bounds)
+      }
+    }
     
     // Get content settings for featured properties limit
     const contentSettings = await getContentSettings()
@@ -29,39 +65,73 @@ export async function GET(request: NextRequest) {
       effectiveLimit = Math.min(query.limit, contentSettings.featuredPropertiesLimit)
     }
     
+    // Handle location search - support both location ID and location name
+    let locationFilter = {}
+    let enhancedSearch = query.search
+    
+    // --- Collect center coordinates if location query present ---
+    let centerCoords: { lat: number; lng: number } | null = null
+    if (query.location) {
+      try {
+        const loc = await prisma.location.findFirst({
+          where: {
+            OR: [
+              { name: { equals: query.location } },
+              { slug: { equals: query.location.toLowerCase().replace(/\s+/g, '-') } },
+              { name: { contains: query.location } }
+            ],
+            active: true
+          }
+        })
+        if (loc) {
+          try {
+            centerCoords = JSON.parse(loc.coordinates)
+          } catch (_) {
+            centerCoords = null
+          }
+        }
+      } catch (e) {
+        centerCoords = null
+      }
+    }
+    
+    // Instead of strict locationId match, we prefer name contains so that nearby areas also appear.
+    if (query.location) {
+      locationFilter = {
+        location: {
+          name: { contains: query.location }
+        }
+      }
+    }
+    
     const where = {
-      ...(query.location && { locationId: query.location }),
+      ...locationFilter,
       ...(query.propertyType && { propertyType: query.propertyType }),
       ...(query.bedrooms && { bedrooms: { gte: query.bedrooms } }),
-      ...(query.minPrice && { price: { gte: query.minPrice } }),
-      ...(query.maxPrice && { price: { lte: query.maxPrice } }),
       ...(query.featured !== undefined && { featured: query.featured }),
-      ...(query.search && {
+      ...(enhancedSearch && {
         OR: [
-          { title: { contains: query.search, mode: 'insensitive' as const } },
-          { description: { contains: query.search, mode: 'insensitive' as const } },
-          { location: { name: { contains: query.search, mode: 'insensitive' as const } } },
+          { title: { contains: enhancedSearch } },
+          { description: { contains: enhancedSearch } },
+          { location: { name: { contains: enhancedSearch } } },
         ],
       }),
       status: 'AVAILABLE' as const,
+      active: true,
     } as any
     
-    const [properties, total] = await Promise.all([
-      prisma.property.findMany({
-        where,
-        include: { location: true },
-        skip: (query.page - 1) * effectiveLimit,
-        take: effectiveLimit,
-        orderBy: [
-          { featured: 'desc' },
-          { createdAt: 'desc' }
-        ],
-      }),
-      prisma.property.count({ where }),
-    ])
+    // First get all properties that match other criteria
+    const allProperties = await prisma.property.findMany({
+      where,
+      include: { location: true },
+      orderBy: [
+        { featured: 'desc' },
+        { createdAt: 'desc' }
+      ],
+    })
     
-    // Parse JSON fields for each property
-    const parsedProperties = properties.map(property => {
+    // Parse JSON fields and filter by bounds if provided
+    const parsedProperties = allProperties.map(property => {
       let nearbyInfrastructure = null;
       
       // Parse nearbyInfrastructure and convert strings to proper arrays
@@ -121,10 +191,76 @@ export async function GET(request: NextRequest) {
         tags: property.tags ? JSON.parse(property.tags) : []
       };
     })
+
+    // Apply price filtering (handle both string and number prices)
+    let priceFilteredProperties = parsedProperties
+    if (query.minPrice || query.maxPrice) {
+      priceFilteredProperties = parsedProperties.filter(property => {
+        // Convert price to number for comparison (handle both string and number)
+        let priceNum = 0
+        try {
+          if (typeof property.price === 'number') {
+            priceNum = property.price
+          } else if (typeof property.price === 'string') {
+            priceNum = parseFloat(property.price.replace(/[^0-9.]/g, '')) || 0
+          }
+        } catch (error) {
+          priceNum = 0
+        }
+        
+        let passesFilter = true
+        
+        if (query.minPrice && priceNum < query.minPrice) {
+          passesFilter = false
+        }
+        
+        if (query.maxPrice && priceNum > query.maxPrice) {
+          passesFilter = false
+        }
+        
+        return passesFilter
+      })
+    }
+
+    // Filter by map bounds if provided
+    const boundsFilteredProperties = boundsFilter 
+      ? priceFilteredProperties.filter(property => isWithinBounds(property.coordinates, boundsFilter))
+      : priceFilteredProperties
+
+    // After boundsFilteredProperties is calculated, insert distance sorting
+    let distanceSortedProperties = boundsFilteredProperties
+    if (centerCoords) {
+      distanceSortedProperties = boundsFilteredProperties
+        .map(p => {
+          let distance: number | null = null
+          try {
+            const coords = p.coordinates
+            if (coords && typeof coords.lat === 'number' && typeof coords.lng === 'number') {
+              distance = haversine(centerCoords!.lat, centerCoords!.lng, coords.lat, coords.lng)
+            }
+          } catch (_) { distance = null }
+          return { ...p, distance }
+        })
+        .sort((a, b) => {
+          if (a.distance === null && b.distance === null) return 0
+          if (a.distance === null) return 1
+          if (b.distance === null) return -1
+          return a.distance! - b.distance!
+        })
+    }
+
+    // Apply pagination on distance-sorted list
+    const total = distanceSortedProperties.length
+    const paginatedProperties = distanceSortedProperties.slice(
+      (query.page - 1) * effectiveLimit,
+      query.page * effectiveLimit
+    )
+    
+
     
     return NextResponse.json({
       success: true,
-      data: parsedProperties,
+      data: paginatedProperties,
       pagination: {
         page: query.page,
         limit: effectiveLimit,
@@ -133,7 +269,10 @@ export async function GET(request: NextRequest) {
       },
       settings: query.featured === true ? {
         featuredPropertiesLimit: contentSettings.featuredPropertiesLimit
-      } : undefined
+      } : undefined,
+      // Include bounds information for map synchronization
+      bounds: boundsFilter,
+      totalBeforeBounds: parsedProperties.length // Total before bounds filtering
     })
   } catch (error) {
     console.error('Error fetching properties:', error)

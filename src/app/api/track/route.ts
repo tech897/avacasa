@@ -27,11 +27,24 @@ const VALID_ACTIVITY_TYPES = [
 
 export async function POST(request: NextRequest) {
   try {
-    const { action, resource, metadata } = await request.json()
+    let requestBody
+    
+    try {
+      requestBody = await request.json()
+    } catch (jsonError) {
+      // Silently ignore JSON parsing errors to reduce noise in logs
+      return NextResponse.json({ success: false, error: 'Invalid JSON' }, { status: 400 })
+    }
+
+    // Validate basic structure
+    if (!requestBody || typeof requestBody !== 'object') {
+      return NextResponse.json({ success: false, error: 'Invalid request body' }, { status: 400 })
+    }
+
+    const { action, resource, metadata } = requestBody
 
     // Validate action type
-    if (!action || !VALID_ACTIVITY_TYPES.includes(action)) {
-      console.warn(`Invalid activity type: ${action}`)
+    if (!action || typeof action !== 'string' || !VALID_ACTIVITY_TYPES.includes(action)) {
       return NextResponse.json({ success: false, error: 'Invalid activity type' }, { status: 400 })
     }
 

@@ -8,10 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
-    "import-csv": "node scripts/import-properties-from-csv.js",
-    "setup-production": "node scripts/setup-production.js",
-    "add-ratings": "node scripts/add-sample-ratings.js",
-    "check-data": "node scripts/setup-production.js"
+    "import-csv": "node scripts/import-properties-from-csv.js"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.9.1",

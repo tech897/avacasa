@@ -1,13 +1,22 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useSearchParams, useRouter, usePathname } from "next/navigation"
 import { PropertyCard } from "@/components/property/property-card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Search, Filter, MapPin, Home, Map, Grid3X3, ChevronLeft, ChevronRight } from "lucide-react"
-import { PropertyType, PropertyStatus } from "@/types"
+import { MapPin, Home, Map, Grid3X3, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"
+import { PropertyType } from "@/types"
 import type { Property, PropertyFilters } from "@/types"
+
+interface SearchFilters {
+  location?: string
+  propertyType?: string
+  bedrooms?: number
+  minPrice?: number
+  maxPrice?: number
+  keywords?: string[]
+  isNaturalLanguage?: boolean
+}
 import dynamic from "next/dynamic"
 import { useTracking } from "@/hooks/use-tracking"
 import { OptimizedSearch } from "@/components/search/optimized-search"
@@ -25,11 +34,21 @@ interface PaginationData {
   pages: number
 }
 
+interface MapBounds {
+  north: number
+  south: number
+  east: number
+  west: number
+}
+
 export default function PropertiesPageContent() {
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
   const [mapView, setMapView] = useState(false)
   const [pagination, setPagination] = useState<PaginationData | null>(null)
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
+  const [mapBounds, setMapBounds] = useState<MapBounds | null>(null)
+  const boundsUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [filters, setFilters] = useState<PropertyFilters>({
     page: 1,
     limit: 50
@@ -84,10 +103,36 @@ export default function PropertiesPageContent() {
       urlFilters.featured = false
     }
 
-    // Handle location parameter
+    // Handle location parameter (for natural language search)
     const locationParam = searchParams.get('location')
     if (locationParam) {
-      urlFilters.search = locationParam
+      urlFilters.location = locationParam
+    }
+
+    // Handle bedrooms parameter
+    const bedroomsParam = searchParams.get('bedrooms')
+    if (bedroomsParam) {
+      const bedrooms = parseInt(bedroomsParam)
+      if (!isNaN(bedrooms) && bedrooms > 0) {
+        urlFilters.bedrooms = bedrooms
+      }
+    }
+
+    // Handle price parameters
+    const minPriceParam = searchParams.get('minPrice')
+    if (minPriceParam) {
+      const minPrice = parseFloat(minPriceParam)
+      if (!isNaN(minPrice) && minPrice >= 0) {
+        urlFilters.minPrice = minPrice
+      }
+    }
+
+    const maxPriceParam = searchParams.get('maxPrice')
+    if (maxPriceParam) {
+      const maxPrice = parseFloat(maxPriceParam)
+      if (!isNaN(maxPrice) && maxPrice >= 0) {
+        urlFilters.maxPrice = maxPrice
+      }
     }
 
     setFilters(urlFilters)
@@ -98,21 +143,56 @@ export default function PropertiesPageContent() {
     trackPageView('/properties')
   }, [trackPageView])
 
-  // Fetch properties from API
-  useEffect(() => {
-    fetchProperties()
-  }, [filters])
+  // Debounced bounds change handler
+  const handleBoundsChange = useCallback((bounds: MapBounds) => {
+    setMapBounds(bounds)
+    
+    // Clear existing timeout
+    if (boundsUpdateTimeoutRef.current) {
+      clearTimeout(boundsUpdateTimeoutRef.current)
+    }
+    
+    // Set new timeout to update properties after user stops moving map
+    boundsUpdateTimeoutRef.current = setTimeout(() => {
+      if (mapView) {
+        // Trigger property fetch with new bounds
+        fetchProperties(filters, bounds)
+      }
+    }, 500) // 500ms delay
+  }, [mapView, filters])
 
-  const fetchProperties = async () => {
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (boundsUpdateTimeoutRef.current) {
+        clearTimeout(boundsUpdateTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  // Fetch properties from API
+  const fetchProperties = useCallback(async (currentFilters = filters, bounds?: MapBounds) => {
     setLoading(true)
     try {
       const searchParams = new URLSearchParams()
       
-      if (filters.search) searchParams.append('search', filters.search)
-      if (filters.propertyType) searchParams.append('propertyType', filters.propertyType)
-      if (filters.featured !== undefined) searchParams.append('featured', filters.featured.toString())
-      if (filters.page) searchParams.append('page', filters.page.toString())
-      if (filters.limit) searchParams.append('limit', filters.limit.toString())
+      if (currentFilters.search) searchParams.append('search', currentFilters.search)
+      if (currentFilters.propertyType) searchParams.append('propertyType', currentFilters.propertyType)
+      if (currentFilters.featured !== undefined) searchParams.append('featured', currentFilters.featured.toString())
+      if (currentFilters.page) searchParams.append('page', currentFilters.page.toString())
+      if (currentFilters.limit) searchParams.append('limit', currentFilters.limit.toString())
+      
+      // Add natural language search parameters
+      if (currentFilters.location) searchParams.append('location', currentFilters.location)
+      if (currentFilters.bedrooms) searchParams.append('bedrooms', currentFilters.bedrooms.toString())
+      if (currentFilters.minPrice) searchParams.append('minPrice', currentFilters.minPrice.toString())
+      if (currentFilters.maxPrice) searchParams.append('maxPrice', currentFilters.maxPrice.toString())
+      
+      // Add bounds filtering if map is visible and bounds are available
+      const boundsToUse = bounds || (mapView ? mapBounds || undefined : undefined)
+      if (boundsToUse && mapView) {
+        searchParams.append('bounds', JSON.stringify(boundsToUse))
+      }
 
       const response = await fetch(`/api/properties?${searchParams.toString()}`)
       if (response.ok) {
@@ -127,23 +207,53 @@ export default function PropertiesPageContent() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [filters, mapView, mapBounds])
 
-  const handleSearch = (query: string, searchFilters?: any) => {
+  // Fetch properties when filters change (but not for bounds-only changes)
+  useEffect(() => {
+    fetchProperties()
+  }, [filters])
+
+  const handleSearch = (query: string, searchFilters?: SearchFilters) => {
+    // Convert string propertyType back to PropertyType enum if needed
+    let propertyType: PropertyType | undefined = undefined
+    if (searchFilters?.propertyType) {
+      const typeMapping: Record<string, PropertyType> = {
+        'VILLA': PropertyType.VILLA,
+        'HOLIDAY_HOME': PropertyType.HOLIDAY_HOME,
+        'FARMLAND': PropertyType.FARMLAND,
+        'PLOT': PropertyType.PLOT,
+        'APARTMENT': PropertyType.APARTMENT,
+        'RESIDENTIAL_PLOT': PropertyType.PLOT // Map to PLOT for now
+      }
+      propertyType = typeMapping[searchFilters.propertyType]
+    }
+
+    // Create enhanced filters that include natural language parameters
     const newFilters = { 
       ...filters, 
       search: query, 
-      propertyType: searchFilters?.propertyType,
+      propertyType: propertyType,
+      location: searchFilters?.location || undefined,
+      bedrooms: searchFilters?.bedrooms || undefined,
+      minPrice: searchFilters?.minPrice || undefined,
+      maxPrice: searchFilters?.maxPrice || undefined,
       page: 1 
     }
     
     setFilters(newFilters)
     updateURL(newFilters)
     
-    // Track search
+    // Track search with additional natural language data
     trackSearch(query, {
-      propertyType: searchFilters?.propertyType,
-      source: 'properties_page'
+      propertyType: propertyType,
+      source: 'properties_page',
+      isNaturalLanguage: searchFilters?.isNaturalLanguage,
+      bedrooms: searchFilters?.bedrooms,
+      location: searchFilters?.location,
+      minPrice: searchFilters?.minPrice,
+      maxPrice: searchFilters?.maxPrice,
+      keywords: searchFilters?.keywords
     })
   }
 
@@ -163,6 +273,31 @@ export default function PropertiesPageContent() {
     const updatedFilters = { ...filters, page }
     setFilters(updatedFilters)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handlePropertySelect = (property: Property) => {
+    setSelectedProperty(property)
+    
+    // Scroll to property card in list view if map is visible
+    if (mapView) {
+      const propertyElement = document.getElementById(`property-${property.id}`)
+      if (propertyElement) {
+        propertyElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        })
+      }
+    }
+  }
+
+  const handleMapToggle = () => {
+    const newMapView = !mapView
+    setMapView(newMapView)
+    
+    // If enabling map view, fetch properties with current bounds
+    if (newMapView && mapBounds) {
+      fetchProperties(filters, mapBounds)
+    }
   }
 
   // Helper function to update URL parameters
@@ -189,34 +324,55 @@ export default function PropertiesPageContent() {
       params.set('featured', currentFilters.featured.toString())
     }
     
+    // Add natural language search parameters to URL
+    if (currentFilters.location) {
+      params.set('location', currentFilters.location)
+    }
+    
+    if (currentFilters.bedrooms) {
+      params.set('bedrooms', currentFilters.bedrooms.toString())
+    }
+    
+    if (currentFilters.minPrice) {
+      params.set('minPrice', currentFilters.minPrice.toString())
+    }
+    
+    if (currentFilters.maxPrice) {
+      params.set('maxPrice', currentFilters.maxPrice.toString())
+    }
+    
     // Update URL without causing a page reload
     const newURL = params.toString() ? `${pathname}?${params.toString()}` : pathname
     router.replace(newURL, { scroll: false })
   }
 
-  // Remove client-side filtering since we're now using API filtering
-  const filteredProperties = properties
+  // Memoized grid configuration based on map view
+  const gridCols = useMemo(() => {
+    return mapView ? 'md:grid-cols-1 lg:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-3'
+  }, [mapView])
 
   return (
-    <div className="min-h-screen bg-gray-50 ">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-gray-50 border-b  top-16 z-40 mt-30">
+      <div className="bg-gray-50 border-b top-16 z-40 mt-30">
         <div className="container mx-auto px-4 py-4">
           {/* Search Bar */}
           <div className="flex gap-4 mb-4">
             <div className="flex-1 max-w-2xl">
               <OptimizedSearch 
                 variant="page"
-                placeholder="Search by property type, location, or keyword..."
+                placeholder="Try: '2bhk holiday home in goa under 2cr' or search by type, location..."
                 onSearch={handleSearch}
                 showPropertyType={false}
+                enableNaturalLanguage={true}
+                showParsedQuery={true}
                 className="w-full"
               />
             </div>
             <Button 
               type="button"
               variant="outline"
-              onClick={() => setMapView(!mapView)}
+              onClick={handleMapToggle}
             >
               {mapView ? (
                 <>
@@ -230,6 +386,17 @@ export default function PropertiesPageContent() {
                 </>
               )}
             </Button>
+            {mapView && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchProperties(filters, mapBounds || undefined)}
+                disabled={loading}
+                title="Refresh properties in current map area"
+              >
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              </Button>
+            )}
           </div>
 
           {/* Quick Filters */}
@@ -270,6 +437,19 @@ export default function PropertiesPageContent() {
               Farmlands
             </Button>
           </div>
+
+          {/* Map view indicator */}
+          {mapView && mapBounds && (
+            <div className="mt-3 text-sm text-gray-600 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+              <MapPin className="w-4 h-4 inline mr-2" />
+              Showing properties in the current map area
+              {pagination?.total && (
+                <span className="ml-2 font-medium">
+                  ({pagination.total} properties found)
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -280,7 +460,7 @@ export default function PropertiesPageContent() {
           <h1 className="text-2xl font-bold text-gray-900">
             {filters.search ? `Search Results for "${filters.search}"` : 'All Properties'}
             <span className="text-gray-500 font-normal ml-2">
-              ({pagination?.total || filteredProperties.length} properties)
+              ({pagination?.total || properties.length} properties)
             </span>
           </h1>
         </div>
@@ -290,16 +470,30 @@ export default function PropertiesPageContent() {
           {/* Properties List */}
           <div className={`${mapView ? 'lg:w-1/2' : 'w-full'} transition-all duration-300`}>
             {loading ? (
-              <div className={`grid grid-cols-1 ${mapView ? 'md:grid-cols-1 lg:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-3'} gap-6`}>
+              <div className={`grid grid-cols-1 ${gridCols} gap-6`}>
                 {[...Array(6)].map((_, i) => (
                   <div key={i} className="bg-white rounded-lg shadow-sm h-96 animate-pulse" />
                 ))}
               </div>
-            ) : filteredProperties.length > 0 ? (
+            ) : properties.length > 0 ? (
               <>
-                <div className={`grid grid-cols-1 ${mapView ? 'md:grid-cols-1 lg:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-3'} gap-6`}>
-                  {filteredProperties.map((property) => (
-                    <PropertyCard key={property.id} property={property} />
+                <div className={`grid grid-cols-1 ${gridCols} gap-6`}>
+                  {properties.map((property) => (
+                    <div
+                      key={property.id}
+                      id={`property-${property.id}`}
+                      className={`transition-all duration-200 ${
+                        selectedProperty?.id === property.id 
+                          ? 'ring-2 ring-blue-500 ring-opacity-50 transform scale-[1.02]' 
+                          : ''
+                      }`}
+                      onClick={() => handlePropertySelect(property)}
+                    >
+                      <PropertyCard 
+                        property={property} 
+                        isSelected={selectedProperty?.id === property.id}
+                      />
+                    </div>
                   ))}
                 </div>
 
@@ -368,12 +562,17 @@ export default function PropertiesPageContent() {
                 <Home className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">No properties found</h3>
                 <p className="text-gray-600 mb-4">
-                  Try adjusting your search criteria or browse all properties.
+                  {mapView 
+                    ? "Try zooming out or moving the map to see more properties."
+                    : "Try adjusting your search criteria or browse all properties."
+                  }
                 </p>
                 <Button onClick={() => {
                   const resetFilters = { page: 1, limit: 50 }
                   setFilters(resetFilters)
                   updateURL(resetFilters)
+                  setSelectedProperty(null)
+                  setMapBounds(null)
                 }}>
                   View All Properties
                 </Button>
@@ -385,7 +584,12 @@ export default function PropertiesPageContent() {
           {mapView && (
             <div className="lg:w-1/2">
               <div className="sticky top-24 h-[600px] rounded-lg overflow-hidden shadow-lg">
-                <PropertyMap properties={filteredProperties} />
+                <PropertyMap 
+                  properties={properties}
+                  selectedProperty={selectedProperty}
+                  onPropertySelect={handlePropertySelect}
+                  onBoundsChange={handleBoundsChange}
+                />
               </div>
             </div>
           )}
@@ -394,3 +598,8 @@ export default function PropertiesPageContent() {
     </div>
   )
 } 
+
+
+//zoom out for perticular level
+//search to location 
+// lat long for all properties for search function 

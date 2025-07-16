@@ -46,12 +46,14 @@ export function Hero() {
             Explore curated holiday homes and managed farmlands handpicked for lifestyle and returns.
           </p>
 
-          {/* Optimized Search Bar */}
+          {/* Natural Language Search Bar */}
           <div className="max-w-4xl mx-auto mb-8">
             <OptimizedSearch 
               variant="hero"
-              placeholder="Search destinations, property types, or keywords..."
+              placeholder="Try: '2bhk holiday home in Assagao under 2cr' or search by type, location..."
               showPropertyType={true}
+              enableNaturalLanguage={true}
+              showParsedQuery={true}
               className="w-full"
             />
           </div>

@@ -83,8 +83,10 @@ export function Header({ showSearch = false }: HeaderProps) {
               <div className="hidden md:block flex-1 max-w-md mx-4">
                 <OptimizedSearch 
                   variant="header"
-                  placeholder="Search properties..."
+                  placeholder="Try: '2bhk villa in Assagao under 2cr'..."
                   showPropertyType={false}
+                  enableNaturalLanguage={true}
+                  showParsedQuery={false}
                   className="w-full"
                 />
               </div>
@@ -148,8 +150,10 @@ export function Header({ showSearch = false }: HeaderProps) {
                 <div className="pb-3 border-b border-gray-200/50">
                   <OptimizedSearch 
                     variant="page"
-                    placeholder="Search properties..."
+                    placeholder="Try: '2bhk villa in Assagao under 2cr'..."
                     showPropertyType={false}
+                    enableNaturalLanguage={true}
+                    showParsedQuery={true}
                     className="w-full"
                   />
                 </div>

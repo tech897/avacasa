@@ -128,6 +128,14 @@ export function useTracking() {
     metadata?: Record<string, any>
   ) => {
     try {
+      // Only track in browser environment
+      if (typeof window === 'undefined') return
+
+      // Validate required action parameter
+      if (!action || typeof action !== 'string') {
+        return
+      }
+
       // Safely serialize metadata to avoid circular references
       const safeMetadata = safeSerialize({
         ...metadata,
@@ -139,45 +147,86 @@ export function useTracking() {
         sessionId: getSessionId()
       })
 
+      const requestBody = {
+        action,
+        resource: resource || undefined,
+        metadata: safeMetadata
+      }
+
+      // Validate that we can stringify the request body
+      let bodyString
+      try {
+        bodyString = JSON.stringify(requestBody)
+        if (!bodyString || bodyString.length < 10) { // Basic validation
+          return
+        }
+      } catch (error) {
+        return
+      }
+
+      // Use fetch with timeout and error handling
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+
+      try {
       await fetch('/api/track', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          action,
-          resource,
-          metadata: safeMetadata
+          body: bodyString,
+          signal: controller.signal
         })
-      })
+      } catch (fetchError) {
+        // Silently ignore fetch errors (network issues, aborts, etc.)
+      } finally {
+        clearTimeout(timeoutId)
+      }
     } catch (error) {
-      console.error('Tracking failed:', error)
+      // Silently ignore all tracking errors
     }
   }, [user])
 
   const getSessionId = useCallback(() => {
+    try {
+      // Check if running in browser environment
+      if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') {
+        return 'sess_ssr_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36)
+      }
+
     let sessionId = sessionStorage.getItem('tracking-session-id')
     if (!sessionId) {
       sessionId = 'sess_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36)
       sessionStorage.setItem('tracking-session-id', sessionId)
     }
     return sessionId
+    } catch (error) {
+      // Fallback if sessionStorage is not available
+      return 'sess_fallback_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36)
+    }
   }, [])
 
   const trackPageView = useCallback((page?: string) => {
+    try {
+      // Check if running in browser environment
+      if (typeof window === 'undefined') return
+
     const currentPage = page || window.location.pathname
     startTimeRef.current = Date.now()
     scrollDepthRef.current = 0
     
     track('PAGE_VIEW', currentPage, {
-      title: document.title,
-      referrer: document.referrer,
-      userAgent: navigator.userAgent,
-      screenResolution: `${screen.width}x${screen.height}`,
-      viewportSize: `${window.innerWidth}x${window.innerHeight}`,
-      language: navigator.language,
+        title: typeof document !== 'undefined' ? document.title : '',
+        referrer: typeof document !== 'undefined' ? document.referrer : '',
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+        screenResolution: typeof screen !== 'undefined' ? `${screen.width}x${screen.height}` : '',
+        viewportSize: typeof window !== 'undefined' ? `${window.innerWidth}x${window.innerHeight}` : '',
+        language: typeof navigator !== 'undefined' ? navigator.language : '',
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
     })
+    } catch (error) {
+      console.error('Page view tracking failed:', error)
+    }
   }, [track])
 
   const trackPageExit = useCallback((page?: string) => {
@@ -192,8 +241,16 @@ export function useTracking() {
   }, [track])
 
   const trackScrollDepth = useCallback(() => {
+    try {
+      // Check if running in browser environment
+      if (typeof window === 'undefined' || typeof document === 'undefined') return
+
     const scrollTop = window.pageYOffset || document.documentElement.scrollTop
     const documentHeight = document.documentElement.scrollHeight - window.innerHeight
+      
+      // Prevent division by zero
+      if (documentHeight <= 0) return
+      
     const scrollPercent = Math.round((scrollTop / documentHeight) * 100)
     
     if (scrollPercent > scrollDepthRef.current) {
@@ -211,6 +268,9 @@ export function useTracking() {
       }
       
       lastScrollRef.current = scrollPercent
+      }
+    } catch (error) {
+      console.error('Scroll depth tracking failed:', error)
     }
   }, [track])
 
@@ -229,12 +289,28 @@ export function useTracking() {
   }, [track])
 
   const trackSearch = useCallback((query: string, filters?: Record<string, any>, results?: number) => {
+    try {
+      // Safely extract tracking data from filters
+      const safeFilters = filters ? {
+        propertyType: filters.propertyType || undefined,
+        source: filters.source || undefined,
+        isNaturalLanguage: filters.isNaturalLanguage || false,
+        bedrooms: typeof filters.bedrooms === 'number' ? filters.bedrooms : undefined,
+        location: typeof filters.location === 'string' ? filters.location : undefined,
+        minPrice: typeof filters.minPrice === 'number' ? filters.minPrice : undefined,
+        maxPrice: typeof filters.maxPrice === 'number' ? filters.maxPrice : undefined,
+        keywords: Array.isArray(filters.keywords) ? filters.keywords.slice(0, 10) : undefined // Limit keywords array
+      } : {}
+
     track('PROPERTY_SEARCH', undefined, {
-      query,
-      filters,
-      results,
+        query: typeof query === 'string' ? query.substring(0, 200) : '', // Limit query length
+        filters: safeFilters,
+        results: typeof results === 'number' ? results : undefined,
       searchTime: Date.now()
     })
+    } catch (error) {
+      console.error('Search tracking failed:', error)
+    }
   }, [track])
 
   const trackLocationView = useCallback((locationId: string, locationName?: string) => {
@@ -328,6 +404,9 @@ export function useTracking() {
 
   // Auto-track page views and user journey
   useEffect(() => {
+    // Only run in browser environment
+    if (typeof window === 'undefined') return
+
     trackPageView()
     updateUserJourney(pathname)
     
