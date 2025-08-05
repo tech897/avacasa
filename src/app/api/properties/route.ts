@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-import { z } from 'zod'
-import { getContentSettings } from '@/lib/settings'
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { z } from "zod";
+import { getContentSettings } from "@/lib/settings";
 
 const querySchema = z.object({
   location: z.string().optional(),
@@ -13,97 +13,107 @@ const querySchema = z.object({
   limit: z.coerce.number().default(50),
   featured: z.coerce.boolean().optional(),
   search: z.string().optional(),
+  viewType: z.string().optional(), // Filter by view type/feature
   // Map bounds filtering
   bounds: z.string().optional(), // JSON string with {north, south, east, west}
-})
+});
 
 // Helper function to check if coordinates are within bounds
 function isWithinBounds(coordinates: any, bounds: any): boolean {
-  if (!coordinates || !coordinates.lat || !coordinates.lng) return false
-  if (!bounds) return true
+  if (!coordinates || !coordinates.lat || !coordinates.lng) return false;
+  if (!bounds) return true;
 
-  const { lat, lng } = coordinates
-  const { north, south, east, west } = bounds
+  const { lat, lng } = coordinates;
+  const { north, south, east, west } = bounds;
 
-  return lat >= south && lat <= north && lng >= west && lng <= east
+  return lat >= south && lat <= north && lng >= west && lng <= east;
 }
 
 // --- New helpers ---
-function toRad (deg: number) { return (deg * Math.PI) / 180 }
-function haversine (lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371 // km
-  const dLat = toRad(lat2 - lat1)
-  const dLon = toRad(lon2 - lon1)
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return R * c
+function toRad(deg: number) {
+  return (deg * Math.PI) / 180;
+}
+function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // km
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const query = querySchema.parse(Object.fromEntries(searchParams))
-    
+    const { searchParams } = new URL(request.url);
+    const query = querySchema.parse(Object.fromEntries(searchParams));
 
-    
     // Parse bounds if provided
-    let boundsFilter = null
+    let boundsFilter = null;
     if (query.bounds) {
       try {
-        boundsFilter = JSON.parse(query.bounds)
+        boundsFilter = JSON.parse(query.bounds);
       } catch (e) {
-        console.warn('Invalid bounds format:', query.bounds)
+        console.warn("Invalid bounds format:", query.bounds);
       }
     }
-    
+
     // Get content settings for featured properties limit
-    const contentSettings = await getContentSettings()
-    
+    const contentSettings = await getContentSettings();
+
     // Use settings-based limit for featured properties
-    let effectiveLimit = query.limit
+    let effectiveLimit = query.limit;
     if (query.featured === true) {
-      effectiveLimit = Math.min(query.limit, contentSettings.featuredPropertiesLimit)
+      effectiveLimit = Math.min(
+        query.limit,
+        contentSettings.featuredPropertiesLimit
+      );
     }
-    
+
     // Handle location search - support both location ID and location name
-    let locationFilter = {}
-    let enhancedSearch = query.search
-    
+    let locationFilter = {};
+    let enhancedSearch = query.search;
+
     // --- Collect center coordinates if location query present ---
-    let centerCoords: { lat: number; lng: number } | null = null
+    let centerCoords: { lat: number; lng: number } | null = null;
     if (query.location) {
       try {
         const loc = await prisma.location.findFirst({
           where: {
             OR: [
               { name: { equals: query.location } },
-              { slug: { equals: query.location.toLowerCase().replace(/\s+/g, '-') } },
-              { name: { contains: query.location } }
+              {
+                slug: {
+                  equals: query.location.toLowerCase().replace(/\s+/g, "-"),
+                },
+              },
+              { name: { contains: query.location } },
             ],
-            active: true
-          }
-        })
+            active: true,
+          },
+        });
         if (loc) {
           try {
-            centerCoords = JSON.parse(loc.coordinates)
+            centerCoords = JSON.parse(loc.coordinates);
           } catch (_) {
-            centerCoords = null
+            centerCoords = null;
           }
         }
       } catch (e) {
-        centerCoords = null
+        centerCoords = null;
       }
     }
-    
+
     // Instead of strict locationId match, we prefer name contains so that nearby areas also appear.
     if (query.location) {
       locationFilter = {
         location: {
-          name: { contains: query.location }
-        }
-      }
+          name: { contains: query.location },
+        },
+      };
     }
-    
+
     const where = {
       ...locationFilter,
       ...(query.propertyType && { propertyType: query.propertyType }),
@@ -116,51 +126,90 @@ export async function GET(request: NextRequest) {
           { location: { name: { contains: enhancedSearch } } },
         ],
       }),
-      status: 'AVAILABLE' as const,
+      status: "AVAILABLE" as const,
       active: true,
-    } as any
-    
+    } as any;
+
     // First get all properties that match other criteria
     const allProperties = await prisma.property.findMany({
       where,
       include: { location: true },
-      orderBy: [
-        { featured: 'desc' },
-        { createdAt: 'desc' }
-      ],
-    })
-    
+      orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
+    });
+
     // Parse JSON fields and filter by bounds if provided
-    const parsedProperties = allProperties.map(property => {
+    const parsedProperties = allProperties.map((property) => {
       let nearbyInfrastructure = null;
-      
+
       // Parse nearbyInfrastructure and convert strings to proper arrays
       if (property.nearbyInfrastructure) {
         try {
           const parsed = JSON.parse(property.nearbyInfrastructure);
           nearbyInfrastructure = {
-            educational: parsed.education ? 
-              parsed.education.split(',').filter((item: string) => item.trim()).map((item: string) => ({
-                name: item.trim(),
-                distance: 'Contact for details'
-              })) : [],
-            healthcare: parsed.healthcare ? 
-              parsed.healthcare.split(',').filter((item: string) => item.trim()).map((item: string) => ({
-                name: item.trim(),
-                distance: 'Contact for details'
-              })) : [],
-            shopping: parsed.shopping ? 
-              parsed.shopping.split(',').filter((item: string) => item.trim()).map((item: string) => ({
-                name: item.trim(),
-                distance: 'Contact for details'
-              })) : [],
-            transportation: parsed.transport ? [
-              ...(parsed.transport.airport ? [{ name: `Airport: ${parsed.transport.airport}`, distance: 'Contact for details' }] : []),
-              ...(parsed.transport.bus ? [{ name: `Bus: ${parsed.transport.bus}`, distance: 'Contact for details' }] : []),
-              ...(parsed.transport.train ? [{ name: `Train: ${parsed.transport.train}`, distance: 'Contact for details' }] : []),
-              ...(parsed.transport.highway ? [{ name: `Highway: ${parsed.transport.highway}`, distance: 'Contact for details' }] : [])
-            ] : [],
-            attractions: parsed.attractions || []
+            educational: parsed.education
+              ? parsed.education
+                  .split(",")
+                  .filter((item: string) => item.trim())
+                  .map((item: string) => ({
+                    name: item.trim(),
+                    distance: "Contact for details",
+                  }))
+              : [],
+            healthcare: parsed.healthcare
+              ? parsed.healthcare
+                  .split(",")
+                  .filter((item: string) => item.trim())
+                  .map((item: string) => ({
+                    name: item.trim(),
+                    distance: "Contact for details",
+                  }))
+              : [],
+            shopping: parsed.shopping
+              ? parsed.shopping
+                  .split(",")
+                  .filter((item: string) => item.trim())
+                  .map((item: string) => ({
+                    name: item.trim(),
+                    distance: "Contact for details",
+                  }))
+              : [],
+            transportation: parsed.transport
+              ? [
+                  ...(parsed.transport.airport
+                    ? [
+                        {
+                          name: `Airport: ${parsed.transport.airport}`,
+                          distance: "Contact for details",
+                        },
+                      ]
+                    : []),
+                  ...(parsed.transport.bus
+                    ? [
+                        {
+                          name: `Bus: ${parsed.transport.bus}`,
+                          distance: "Contact for details",
+                        },
+                      ]
+                    : []),
+                  ...(parsed.transport.train
+                    ? [
+                        {
+                          name: `Train: ${parsed.transport.train}`,
+                          distance: "Contact for details",
+                        },
+                      ]
+                    : []),
+                  ...(parsed.transport.highway
+                    ? [
+                        {
+                          name: `Highway: ${parsed.transport.highway}`,
+                          distance: "Contact for details",
+                        },
+                      ]
+                    : []),
+                ]
+              : [],
+            attractions: parsed.attractions || [],
           };
         } catch (e) {
           nearbyInfrastructure = {
@@ -168,96 +217,198 @@ export async function GET(request: NextRequest) {
             healthcare: [],
             shopping: [],
             transportation: [],
-            attractions: []
+            attractions: [],
           };
         }
       }
 
       return {
         ...property,
-        images: JSON.parse(property.images || '[]'),
-        amenities: JSON.parse(property.amenities || '[]'),
-        features: JSON.parse(property.features || '[]'),
-        coordinates: property.coordinates ? JSON.parse(property.coordinates) : null,
+        images: JSON.parse(property.images || "[]"),
+        amenities: JSON.parse(property.amenities || "[]"),
+        features: JSON.parse(property.features || "[]"),
+        coordinates: property.coordinates
+          ? JSON.parse(property.coordinates)
+          : null,
         nearbyInfrastructure,
         // Parse other JSON fields
-        unitConfiguration: property.unitConfiguration ? JSON.parse(property.unitConfiguration) : null,
-        legalApprovals: property.legalApprovals ? JSON.parse(property.legalApprovals) : [],
-        registrationCosts: property.registrationCosts ? JSON.parse(property.registrationCosts) : null,
-        propertyManagement: property.propertyManagement ? JSON.parse(property.propertyManagement) : null,
-        financialReturns: property.financialReturns ? JSON.parse(property.financialReturns) : null,
-        investmentBenefits: property.investmentBenefits ? JSON.parse(property.investmentBenefits) : [],
-        emiOptions: property.emiOptions ? JSON.parse(property.emiOptions) : null,
-        tags: property.tags ? JSON.parse(property.tags) : []
+        unitConfiguration: property.unitConfiguration
+          ? JSON.parse(property.unitConfiguration)
+          : null,
+        legalApprovals: property.legalApprovals
+          ? JSON.parse(property.legalApprovals)
+          : [],
+        registrationCosts: property.registrationCosts
+          ? JSON.parse(property.registrationCosts)
+          : null,
+        propertyManagement: property.propertyManagement
+          ? JSON.parse(property.propertyManagement)
+          : null,
+        financialReturns: property.financialReturns
+          ? JSON.parse(property.financialReturns)
+          : null,
+        investmentBenefits: property.investmentBenefits
+          ? JSON.parse(property.investmentBenefits)
+          : [],
+        emiOptions: property.emiOptions
+          ? JSON.parse(property.emiOptions)
+          : null,
+        tags: property.tags ? JSON.parse(property.tags) : [],
       };
-    })
+    });
 
     // Apply price filtering (handle both string and number prices)
-    let priceFilteredProperties = parsedProperties
+    let priceFilteredProperties = parsedProperties;
     if (query.minPrice || query.maxPrice) {
-      priceFilteredProperties = parsedProperties.filter(property => {
+      priceFilteredProperties = parsedProperties.filter((property) => {
         // Convert price to number for comparison (handle both string and number)
-        let priceNum = 0
+        let priceNum = 0;
         try {
-          if (typeof property.price === 'number') {
-            priceNum = property.price
-          } else if (typeof property.price === 'string') {
-            priceNum = parseFloat(property.price.replace(/[^0-9.]/g, '')) || 0
+          if (typeof property.price === "number") {
+            priceNum = property.price;
+          } else if (typeof property.price === "string") {
+            priceNum = parseFloat(property.price.replace(/[^0-9.]/g, "")) || 0;
           }
         } catch (error) {
-          priceNum = 0
+          priceNum = 0;
         }
-        
-        let passesFilter = true
-        
+
+        let passesFilter = true;
+
         if (query.minPrice && priceNum < query.minPrice) {
-          passesFilter = false
+          passesFilter = false;
         }
-        
+
         if (query.maxPrice && priceNum > query.maxPrice) {
-          passesFilter = false
+          passesFilter = false;
         }
-        
-        return passesFilter
-      })
+
+        return passesFilter;
+      });
+    }
+
+    // Filter by viewType if provided
+    let viewTypeFilteredProperties = priceFilteredProperties;
+    if (query.viewType) {
+      viewTypeFilteredProperties = priceFilteredProperties.filter(
+        (property) => {
+          // Check if the property has features that match the requested viewType
+          const features = property.features || [];
+          const searchTerm = query.viewType!.toLowerCase();
+
+          return features.some((feature: any) => {
+            if (!feature.name) return false;
+
+            const featureName = feature.name.toLowerCase();
+
+            // Exact or close matches for common view types
+            if (searchTerm === "lake view") {
+              return (
+                (featureName.includes("lake") &&
+                  featureName.includes("view")) ||
+                featureName.includes("lakeside") ||
+                featureName.includes("lake views")
+              );
+            }
+            if (searchTerm === "forest view") {
+              return (
+                (featureName.includes("forest") &&
+                  featureName.includes("view")) ||
+                featureName.includes("forest views") ||
+                featureName === "forest" ||
+                featureName.includes("forest edge")
+              );
+            }
+            if (searchTerm === "hill view") {
+              return (
+                (featureName.includes("hill") &&
+                  featureName.includes("view")) ||
+                featureName.includes("hill views") ||
+                featureName === "hill" ||
+                featureName === "hills" ||
+                featureName.includes("hills")
+              );
+            }
+            if (searchTerm === "farm view") {
+              return (
+                (featureName.includes("farm") &&
+                  featureName.includes("view")) ||
+                featureName.includes("farm views") ||
+                featureName.includes("farmland view") ||
+                featureName.includes("farmland")
+              );
+            }
+            if (searchTerm === "sea view") {
+              return (
+                (featureName.includes("sea") && featureName.includes("view")) ||
+                featureName.includes("sea views") ||
+                featureName.includes("beach view") ||
+                featureName.includes("beach")
+              );
+            }
+            if (searchTerm === "pool view") {
+              return (
+                (featureName.includes("pool") &&
+                  featureName.includes("view")) ||
+                featureName.includes("pool views") ||
+                featureName.includes("poolside")
+              );
+            }
+
+            // Fallback to general containment check
+            return featureName.includes(searchTerm);
+          });
+        }
+      );
     }
 
     // Filter by map bounds if provided
-    const boundsFilteredProperties = boundsFilter 
-      ? priceFilteredProperties.filter(property => isWithinBounds(property.coordinates, boundsFilter))
-      : priceFilteredProperties
+    const boundsFilteredProperties = boundsFilter
+      ? viewTypeFilteredProperties.filter((property) =>
+          isWithinBounds(property.coordinates, boundsFilter)
+        )
+      : viewTypeFilteredProperties;
 
     // After boundsFilteredProperties is calculated, insert distance sorting
-    let distanceSortedProperties = boundsFilteredProperties
+    let distanceSortedProperties = boundsFilteredProperties;
     if (centerCoords) {
       distanceSortedProperties = boundsFilteredProperties
-        .map(p => {
-          let distance: number | null = null
+        .map((p) => {
+          let distance: number | null = null;
           try {
-            const coords = p.coordinates
-            if (coords && typeof coords.lat === 'number' && typeof coords.lng === 'number') {
-              distance = haversine(centerCoords!.lat, centerCoords!.lng, coords.lat, coords.lng)
+            const coords = p.coordinates;
+            if (
+              coords &&
+              typeof coords.lat === "number" &&
+              typeof coords.lng === "number"
+            ) {
+              distance = haversine(
+                centerCoords!.lat,
+                centerCoords!.lng,
+                coords.lat,
+                coords.lng
+              );
             }
-          } catch (_) { distance = null }
-          return { ...p, distance }
+          } catch (_) {
+            distance = null;
+          }
+          return { ...p, distance };
         })
         .sort((a, b) => {
-          if (a.distance === null && b.distance === null) return 0
-          if (a.distance === null) return 1
-          if (b.distance === null) return -1
-          return a.distance! - b.distance!
-        })
+          if (a.distance === null && b.distance === null) return 0;
+          if (a.distance === null) return 1;
+          if (b.distance === null) return -1;
+          return a.distance! - b.distance!;
+        });
     }
 
     // Apply pagination on distance-sorted list
-    const total = distanceSortedProperties.length
+    const total = distanceSortedProperties.length;
     const paginatedProperties = distanceSortedProperties.slice(
       (query.page - 1) * effectiveLimit,
       query.page * effectiveLimit
-    )
-    
+    );
 
-    
     return NextResponse.json({
       success: true,
       data: paginatedProperties,
@@ -267,22 +418,25 @@ export async function GET(request: NextRequest) {
         total,
         pages: Math.ceil(total / effectiveLimit),
       },
-      settings: query.featured === true ? {
-        featuredPropertiesLimit: contentSettings.featuredPropertiesLimit
-      } : undefined,
+      settings:
+        query.featured === true
+          ? {
+              featuredPropertiesLimit: contentSettings.featuredPropertiesLimit,
+            }
+          : undefined,
       // Include bounds information for map synchronization
       bounds: boundsFilter,
-      totalBeforeBounds: parsedProperties.length // Total before bounds filtering
-    })
+      totalBeforeBounds: parsedProperties.length, // Total before bounds filtering
+    });
   } catch (error) {
-    console.error('Error fetching properties:', error)
+    console.error("Error fetching properties:", error);
     return NextResponse.json(
-      { 
+      {
         success: false,
-        error: 'Failed to fetch properties',
-        message: error instanceof Error ? error.message : 'Unknown error'
+        error: "Failed to fetch properties",
+        message: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
-    )
+    );
   }
-} 
+}

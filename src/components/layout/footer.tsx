@@ -1,11 +1,20 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Link from "next/link"
-import { MapPin, Phone, Mail, Facebook, Instagram, Linkedin, Twitter } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { useSettings } from "@/contexts/settings-context"
+import { useState } from "react";
+import Link from "next/link";
+import {
+  MapPin,
+  Phone,
+  Mail,
+  Facebook,
+  Instagram,
+  Linkedin,
+  Twitter,
+  MessageCircle,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useSettings } from "@/contexts/settings-context";
 
 const footerSections = {
   company: {
@@ -16,7 +25,7 @@ const footerSections = {
       { name: "Careers", href: "/careers" },
       { name: "Press", href: "/press" },
       { name: "Contact", href: "/contact" },
-    ]
+    ],
   },
   services: {
     title: "Services",
@@ -26,7 +35,7 @@ const footerSections = {
       { name: "Plots", href: "/properties?type=plot" },
       { name: "Villas", href: "/properties?type=villa" },
       { name: "Property Management", href: "/services/management" },
-    ]
+    ],
   },
   locations: {
     title: "Locations",
@@ -36,7 +45,7 @@ const footerSections = {
       { name: "Coorg", href: "/locations/coorg" },
       { name: "Chikkamagaluru", href: "/locations/chikkamagaluru" },
       { name: "View All", href: "/locations" },
-    ]
+    ],
   },
   legal: {
     title: "Legal",
@@ -45,23 +54,23 @@ const footerSections = {
       { name: "Terms & Conditions", href: "/terms" },
       { name: "Cookie Policy", href: "/cookie-policy" },
       { name: "Disclaimer", href: "/disclaimer" },
-    ]
-  }
-}
+    ],
+  },
+};
 
 export function Footer() {
-  const { settings } = useSettings()
-  const [email, setEmail] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [message, setMessage] = useState("")
-  const [isSuccess, setIsSuccess] = useState(false)
+  const { settings } = useSettings();
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const handleNewsletterSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!email.trim()) return
+    e.preventDefault();
+    if (!email.trim()) return;
 
-    setLoading(true)
-    setMessage("")
+    setLoading(true);
+    setMessage("");
 
     try {
       const response = await fetch("/api/newsletter/subscribe", {
@@ -69,31 +78,31 @@ export function Footer() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           email: email.trim(),
-          source: "footer_newsletter"
+          source: "footer_newsletter",
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (data.success) {
-        setMessage("Successfully subscribed to newsletter!")
-        setIsSuccess(true)
-        setEmail("")
+        setMessage("Successfully subscribed to newsletter!");
+        setIsSuccess(true);
+        setEmail("");
       } else {
-        setMessage(data.error || "Subscription failed. Please try again.")
-        setIsSuccess(false)
+        setMessage(data.error || "Subscription failed. Please try again.");
+        setIsSuccess(false);
       }
     } catch (error) {
-      setMessage("Network error. Please try again.")
-      setIsSuccess(false)
+      setMessage("Network error. Please try again.");
+      setIsSuccess(false);
     } finally {
-      setLoading(false)
+      setLoading(false);
       // Clear message after 5 seconds
-      setTimeout(() => setMessage(""), 5000)
+      setTimeout(() => setMessage(""), 5000);
     }
-  }
+  };
 
   return (
     <footer className="bg-gray-900 text-white">
@@ -105,9 +114,13 @@ export function Footer() {
               Stay Updated with Latest Properties
             </h3>
             <p className="text-lg mb-8 text-gray-300">
-              Get notified about new listings, price drops, and exclusive opportunities
+              Get notified about new listings, price drops, and exclusive
+              opportunities
             </p>
-            <form onSubmit={handleNewsletterSubmit} className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
+            <form
+              onSubmit={handleNewsletterSubmit}
+              className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto"
+            >
               <Input
                 type="email"
                 placeholder="Enter your email"
@@ -116,7 +129,7 @@ export function Footer() {
                 className="bg-white/10 border-white/20 text-white placeholder:text-white/70 focus:bg-white/20"
                 required
               />
-              <Button 
+              <Button
                 type="submit"
                 disabled={loading}
                 className="bg-white text-gray-900 hover:bg-gray-100 disabled:opacity-50"
@@ -125,7 +138,11 @@ export function Footer() {
               </Button>
             </form>
             {message && (
-              <p className={`mt-4 text-sm ${isSuccess ? 'text-green-400' : 'text-red-400'}`}>
+              <p
+                className={`mt-4 text-sm ${
+                  isSuccess ? "text-green-400" : "text-red-400"
+                }`}
+              >
                 {message}
               </p>
             )}
@@ -142,9 +159,7 @@ export function Footer() {
               <div className="w-10 h-10 bg-gray-700 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-xl">A</span>
               </div>
-              <span className="text-2xl font-bold">
-                {settings.siteName}
-              </span>
+              <span className="text-2xl font-bold">{settings.siteName}</span>
             </Link>
             <p className="text-gray-400 mb-6 leading-relaxed">
               {settings.siteDescription}
@@ -153,7 +168,10 @@ export function Footer() {
               {settings.contactPhone && (
                 <div className="flex items-center space-x-3">
                   <Phone className="w-5 h-5 text-gray-400" />
-                  <a href={`tel:${settings.contactPhone.replace(/\s/g, '')}`} className="text-gray-400 hover:text-white">
+                  <a
+                    href={`tel:${settings.contactPhone.replace(/\s/g, "")}`}
+                    className="text-gray-400 hover:text-white"
+                  >
                     {settings.contactPhone}
                   </a>
                 </div>
@@ -161,7 +179,10 @@ export function Footer() {
               {settings.contactEmail && (
                 <div className="flex items-center space-x-3">
                   <Mail className="w-5 h-5 text-gray-400" />
-                  <a href={`mailto:${settings.contactEmail}`} className="text-gray-400 hover:text-white">
+                  <a
+                    href={`mailto:${settings.contactEmail}`}
+                    className="text-gray-400 hover:text-white"
+                  >
                     {settings.contactEmail}
                   </a>
                 </div>
@@ -169,9 +190,7 @@ export function Footer() {
               {settings.address && (
                 <div className="flex items-start space-x-3">
                   <MapPin className="w-5 h-5 text-gray-400 mt-1" />
-                  <span className="text-gray-400">
-                    {settings.address}
-                  </span>
+                  <span className="text-gray-400">{settings.address}</span>
                 </div>
               )}
             </div>
@@ -208,6 +227,7 @@ export function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-gray-400 hover:text-white transition-colors"
+                  title="Facebook"
                 >
                   <Facebook className="w-5 h-5" />
                 </a>
@@ -218,6 +238,7 @@ export function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-gray-400 hover:text-white transition-colors"
+                  title="Instagram"
                 >
                   <Instagram className="w-5 h-5" />
                 </a>
@@ -228,6 +249,7 @@ export function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-gray-400 hover:text-white transition-colors"
+                  title="LinkedIn"
                 >
                   <Linkedin className="w-5 h-5" />
                 </a>
@@ -238,8 +260,20 @@ export function Footer() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-gray-400 hover:text-white transition-colors"
+                  title="Twitter"
                 >
                   <Twitter className="w-5 h-5" />
+                </a>
+              )}
+              {settings.whatsappNumber && (
+                <a
+                  href={`https://wa.me/${settings.whatsappNumber}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-white transition-colors"
+                  title="WhatsApp"
+                >
+                  <MessageCircle className="w-5 h-5" />
                 </a>
               )}
             </div>
@@ -250,5 +284,5 @@ export function Footer() {
         </div>
       </div>
     </footer>
-  )
-} 
+  );
+}

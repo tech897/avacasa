@@ -14,7 +14,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Verify JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as { userId: string }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || (() => {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('JWT_SECRET environment variable is required in production')
+      }
+      return 'dev-secret-key-only-for-development'
+    })()) as { userId: string }
 
     const favorites = await prisma.userFavorite.findMany({
       where: { userId: decoded.userId },
@@ -66,7 +71,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as { userId: string }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || (() => {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('JWT_SECRET environment variable is required in production')
+      }
+      return 'dev-secret-key-only-for-development'
+    })()) as { userId: string }
 
     const { propertyId } = await request.json()
 
@@ -155,7 +165,12 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verify JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as { userId: string }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || (() => {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('JWT_SECRET environment variable is required in production')
+      }
+      return 'dev-secret-key-only-for-development'
+    })()) as { userId: string }
 
     const { propertyId } = await request.json()
 

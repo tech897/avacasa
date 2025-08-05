@@ -1,20 +1,20 @@
-'use client'
+"use client";
 
-import { useEffect } from 'react'
-import Link from 'next/link'
-import { AlertTriangle, Home, RefreshCw, ArrowLeft } from 'lucide-react'
+import { useEffect } from "react";
+import Link from "next/link";
+import { AlertTriangle, Home, RefreshCw, ArrowLeft } from "lucide-react";
 
 export default function Error({
   error,
   reset,
 }: {
-  error: Error & { digest?: string }
-  reset: () => void
+  error: Error & { digest?: string };
+  reset: () => void;
 }) {
   useEffect(() => {
     // Log the error to an error reporting service
-    console.error('Application error:', error)
-  }, [error])
+    console.error("Application error:", error);
+  }, [error]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center px-4">
@@ -42,7 +42,7 @@ export default function Error({
         </div>
 
         {/* Error Details (Development only) */}
-        {process.env.NODE_ENV === 'development' && (
+        {process.env.NODE_ENV === "development" && (
           <div className="mb-8 p-4 bg-red-100 border border-red-200 rounded-lg text-left">
             <h3 className="font-semibold text-red-800 mb-2">Error Details:</h3>
             <p className="text-sm text-red-700 font-mono break-all">
@@ -65,7 +65,7 @@ export default function Error({
             <RefreshCw className="w-5 h-5 mr-2" />
             Try Again
           </button>
-          
+
           <Link
             href="/"
             className="inline-flex items-center px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium"
@@ -102,13 +102,16 @@ export default function Error({
         {/* Contact Info */}
         <div className="mt-8 text-center">
           <p className="text-gray-500 text-sm">
-            Still experiencing issues?{' '}
-            <Link href="/contact" className="text-red-600 hover:text-red-800 font-medium">
+            Still experiencing issues?{" "}
+            <Link
+              href="/contact"
+              className="text-red-600 hover:text-red-800 font-medium"
+            >
               Contact our support team
             </Link>
           </p>
         </div>
       </div>
     </div>
-  )
-} 
+  );
+}

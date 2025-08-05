@@ -3,7 +3,7 @@ import { NextAuthOptions } from "next-auth"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "./db"
 
-const ALLOWED_ADMIN_EMAIL = "akashsharma90099@gmail.com"
+const ALLOWED_ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@example.com"
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma) as any,

@@ -1,355 +1,440 @@
-"use client"
+"use client";
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
-import { useSearchParams, useRouter, usePathname } from "next/navigation"
-import { PropertyCard } from "@/components/property/property-card"
-import { Button } from "@/components/ui/button"
-import { MapPin, Home, Map, Grid3X3, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"
-import { PropertyType } from "@/types"
-import type { Property, PropertyFilters } from "@/types"
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { PropertyCard } from "@/components/property/property-card";
+import { Button } from "@/components/ui/button";
+import {
+  MapPin,
+  Home,
+  Map,
+  Grid3X3,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+} from "lucide-react";
+import { PropertyType } from "@/types";
+import type { Property, PropertyFilters } from "@/types";
 
 interface SearchFilters {
-  location?: string
-  propertyType?: string
-  bedrooms?: number
-  minPrice?: number
-  maxPrice?: number
-  keywords?: string[]
-  isNaturalLanguage?: boolean
+  location?: string;
+  propertyType?: string;
+  bedrooms?: number;
+  minPrice?: number;
+  maxPrice?: number;
+  keywords?: string[];
+  isNaturalLanguage?: boolean;
 }
-import dynamic from "next/dynamic"
-import { useTracking } from "@/hooks/use-tracking"
-import { OptimizedSearch } from "@/components/search/optimized-search"
+import dynamic from "next/dynamic";
+import { useTracking } from "@/hooks/use-tracking";
+import { OptimizedSearch } from "@/components/search/optimized-search";
 
 // Dynamically import map component to avoid SSR issues
-const PropertyMap = dynamic(() => import("@/components/property/property-map"), {
-  ssr: false,
-  loading: () => <div className="h-full bg-gray-100 animate-pulse rounded-lg" />
-})
+const PropertyMap = dynamic(
+  () => import("@/components/property/property-map"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-full bg-gray-100 animate-pulse rounded-lg" />
+    ),
+  }
+);
 
 interface PaginationData {
-  page: number
-  limit: number
-  total: number
-  pages: number
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
 }
 
 interface MapBounds {
-  north: number
-  south: number
-  east: number
-  west: number
+  north: number;
+  south: number;
+  east: number;
+  west: number;
 }
 
 export default function PropertiesPageContent() {
-  const [properties, setProperties] = useState<Property[]>([])
-  const [loading, setLoading] = useState(true)
-  const [mapView, setMapView] = useState(false)
-  const [pagination, setPagination] = useState<PaginationData | null>(null)
-  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
-  const [mapBounds, setMapBounds] = useState<MapBounds | null>(null)
-  const boundsUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [mapView, setMapView] = useState(true);
+  const [pagination, setPagination] = useState<PaginationData | null>(null);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(
+    null
+  );
+  const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
+  const boundsUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [filters, setFilters] = useState<PropertyFilters>({
     page: 1,
-    limit: 50
-  })
-  
-  const searchParams = useSearchParams()
-  const router = useRouter()
-  const pathname = usePathname()
-  const { trackPageView, trackSearch } = useTracking()
+    limit: 50,
+  });
+
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const { trackPageView, trackSearch } = useTracking();
 
   // Parse URL parameters and set initial filters
   useEffect(() => {
     const urlFilters: PropertyFilters = {
       page: 1,
-      limit: 50
-    }
+      limit: 50,
+    };
 
     // Handle property type parameter (both 'type' and 'propertyType')
-    const typeParam = searchParams.get('type') || searchParams.get('propertyType')
+    const typeParam =
+      searchParams.get("type") || searchParams.get("propertyType");
     if (typeParam) {
       // Convert URL-friendly names to PropertyType enum values
       const typeMapping: Record<string, PropertyType> = {
-        'villa': PropertyType.VILLA,
-        'villas': PropertyType.VILLA,
-        'holiday-home': PropertyType.HOLIDAY_HOME,
-        'holiday-homes': PropertyType.HOLIDAY_HOME,
-        'farmland': PropertyType.FARMLAND,
-        'farmlands': PropertyType.FARMLAND,
-        'plot': PropertyType.PLOT,
-        'plots': PropertyType.PLOT,
-        'apartment': PropertyType.APARTMENT,
-        'apartments': PropertyType.APARTMENT
-      }
-      
-      const propertyType = typeMapping[typeParam.toLowerCase()]
+        villa: PropertyType.VILLA,
+        villas: PropertyType.VILLA,
+        "holiday-home": PropertyType.HOLIDAY_HOME,
+        "holiday-homes": PropertyType.HOLIDAY_HOME,
+        farmland: PropertyType.FARMLAND,
+        farmlands: PropertyType.FARMLAND,
+        "managed-farmland": PropertyType.FARMLAND,
+        "managed-farmlands": PropertyType.FARMLAND,
+        plot: PropertyType.PLOT,
+        plots: PropertyType.PLOT,
+        "residential-plot": PropertyType.RESIDENTIAL_PLOT,
+        "residential-plots": PropertyType.RESIDENTIAL_PLOT,
+        apartment: PropertyType.APARTMENT,
+        apartments: PropertyType.APARTMENT,
+      };
+
+      const propertyType = typeMapping[typeParam.toLowerCase()];
       if (propertyType) {
-        urlFilters.propertyType = propertyType
+        urlFilters.propertyType = propertyType;
       }
     }
 
     // Handle search parameter
-    const searchParam = searchParams.get('search')
+    const searchParam = searchParams.get("search");
     if (searchParam) {
-      urlFilters.search = searchParam
+      urlFilters.search = searchParam;
     }
 
     // Handle featured parameter
-    const featuredParam = searchParams.get('featured')
-    if (featuredParam === 'true') {
-      urlFilters.featured = true
-    } else if (featuredParam === 'false') {
-      urlFilters.featured = false
+    const featuredParam = searchParams.get("featured");
+    if (featuredParam === "true") {
+      urlFilters.featured = true;
+    } else if (featuredParam === "false") {
+      urlFilters.featured = false;
     }
 
     // Handle location parameter (for natural language search)
-    const locationParam = searchParams.get('location')
+    const locationParam = searchParams.get("location");
     if (locationParam) {
-      urlFilters.location = locationParam
+      urlFilters.location = locationParam;
     }
 
     // Handle bedrooms parameter
-    const bedroomsParam = searchParams.get('bedrooms')
+    const bedroomsParam = searchParams.get("bedrooms");
     if (bedroomsParam) {
-      const bedrooms = parseInt(bedroomsParam)
+      const bedrooms = parseInt(bedroomsParam);
       if (!isNaN(bedrooms) && bedrooms > 0) {
-        urlFilters.bedrooms = bedrooms
+        urlFilters.bedrooms = bedrooms;
       }
     }
 
     // Handle price parameters
-    const minPriceParam = searchParams.get('minPrice')
+    const minPriceParam = searchParams.get("minPrice");
     if (minPriceParam) {
-      const minPrice = parseFloat(minPriceParam)
+      const minPrice = parseFloat(minPriceParam);
       if (!isNaN(minPrice) && minPrice >= 0) {
-        urlFilters.minPrice = minPrice
+        urlFilters.minPrice = minPrice;
       }
     }
 
-    const maxPriceParam = searchParams.get('maxPrice')
+    const maxPriceParam = searchParams.get("maxPrice");
     if (maxPriceParam) {
-      const maxPrice = parseFloat(maxPriceParam)
+      const maxPrice = parseFloat(maxPriceParam);
       if (!isNaN(maxPrice) && maxPrice >= 0) {
-        urlFilters.maxPrice = maxPrice
+        urlFilters.maxPrice = maxPrice;
       }
     }
 
-    setFilters(urlFilters)
-  }, [searchParams])
+    // Handle viewType parameter
+    const viewTypeParam = searchParams.get("viewType");
+    if (viewTypeParam) {
+      urlFilters.viewType = viewTypeParam;
+    }
+
+    // Handle page parameter
+    const pageParam = searchParams.get("page");
+    if (pageParam) {
+      const page = parseInt(pageParam);
+      if (!isNaN(page) && page > 0) {
+        urlFilters.page = page;
+      }
+    }
+
+    setFilters(urlFilters);
+  }, [searchParams]);
 
   // Track page view on mount
   useEffect(() => {
-    trackPageView('/properties')
-  }, [trackPageView])
+    trackPageView("/properties");
+  }, [trackPageView]);
+
+  // Fetch properties from API - stable function with filters dependency
+  const fetchProperties = useCallback(
+    async (currentFilters?: PropertyFilters, bounds?: MapBounds) => {
+      setLoading(true);
+      try {
+        const filtersToUse = currentFilters || filters;
+        const searchParams = new URLSearchParams();
+
+        if (filtersToUse.search)
+          searchParams.append("search", filtersToUse.search);
+        if (filtersToUse.propertyType)
+          searchParams.append("propertyType", filtersToUse.propertyType);
+        if (filtersToUse.featured !== undefined)
+          searchParams.append("featured", filtersToUse.featured.toString());
+        if (filtersToUse.page)
+          searchParams.append("page", filtersToUse.page.toString());
+        if (filtersToUse.limit)
+          searchParams.append("limit", filtersToUse.limit.toString());
+
+        // Add natural language search parameters
+        if (filtersToUse.location)
+          searchParams.append("location", filtersToUse.location);
+        if (filtersToUse.bedrooms)
+          searchParams.append("bedrooms", filtersToUse.bedrooms.toString());
+        if (filtersToUse.minPrice)
+          searchParams.append("minPrice", filtersToUse.minPrice.toString());
+        if (filtersToUse.maxPrice)
+          searchParams.append("maxPrice", filtersToUse.maxPrice.toString());
+        if (filtersToUse.viewType)
+          searchParams.append("viewType", filtersToUse.viewType);
+
+        // Only add bounds filtering if bounds are explicitly provided and valid
+        if (
+          bounds &&
+          bounds.north &&
+          bounds.south &&
+          bounds.east &&
+          bounds.west
+        ) {
+          searchParams.append("bounds", JSON.stringify(bounds));
+        }
+
+        const response = await fetch(
+          `/api/properties?${searchParams.toString()}`
+        );
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            setProperties(result.data);
+            setPagination(result.pagination);
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching properties:", error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [filters] // Include filters as dependency so it uses current filters
+  );
 
   // Debounced bounds change handler
-  const handleBoundsChange = useCallback((bounds: MapBounds) => {
-    setMapBounds(bounds)
-    
-    // Clear existing timeout
-    if (boundsUpdateTimeoutRef.current) {
-      clearTimeout(boundsUpdateTimeoutRef.current)
-    }
-    
-    // Set new timeout to update properties after user stops moving map
-    boundsUpdateTimeoutRef.current = setTimeout(() => {
-      if (mapView) {
-        // Trigger property fetch with new bounds
-        fetchProperties(filters, bounds)
+  const handleBoundsChange = useCallback(
+    (bounds: MapBounds) => {
+      setMapBounds(bounds);
+
+      // Clear existing timeout
+      if (boundsUpdateTimeoutRef.current) {
+        clearTimeout(boundsUpdateTimeoutRef.current);
       }
-    }, 500) // 500ms delay
-  }, [mapView, filters])
+
+      // Set new timeout to update properties after user stops moving map
+      boundsUpdateTimeoutRef.current = setTimeout(() => {
+        if (mapView) {
+          // Trigger property fetch with new bounds
+          fetchProperties(filters, bounds);
+        }
+      }, 500); // 500ms delay
+    },
+    [mapView, fetchProperties]
+  );
 
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (boundsUpdateTimeoutRef.current) {
-        clearTimeout(boundsUpdateTimeoutRef.current)
+        clearTimeout(boundsUpdateTimeoutRef.current);
       }
-    }
-  }, [])
-
-  // Fetch properties from API
-  const fetchProperties = useCallback(async (currentFilters = filters, bounds?: MapBounds) => {
-    setLoading(true)
-    try {
-      const searchParams = new URLSearchParams()
-      
-      if (currentFilters.search) searchParams.append('search', currentFilters.search)
-      if (currentFilters.propertyType) searchParams.append('propertyType', currentFilters.propertyType)
-      if (currentFilters.featured !== undefined) searchParams.append('featured', currentFilters.featured.toString())
-      if (currentFilters.page) searchParams.append('page', currentFilters.page.toString())
-      if (currentFilters.limit) searchParams.append('limit', currentFilters.limit.toString())
-      
-      // Add natural language search parameters
-      if (currentFilters.location) searchParams.append('location', currentFilters.location)
-      if (currentFilters.bedrooms) searchParams.append('bedrooms', currentFilters.bedrooms.toString())
-      if (currentFilters.minPrice) searchParams.append('minPrice', currentFilters.minPrice.toString())
-      if (currentFilters.maxPrice) searchParams.append('maxPrice', currentFilters.maxPrice.toString())
-      
-      // Add bounds filtering if map is visible and bounds are available
-      const boundsToUse = bounds || (mapView ? mapBounds || undefined : undefined)
-      if (boundsToUse && mapView) {
-        searchParams.append('bounds', JSON.stringify(boundsToUse))
-      }
-
-      const response = await fetch(`/api/properties?${searchParams.toString()}`)
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success) {
-          setProperties(result.data)
-          setPagination(result.pagination)
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching properties:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [filters, mapView, mapBounds])
+    };
+  }, []);
 
   // Fetch properties when filters change (but not for bounds-only changes)
   useEffect(() => {
-    fetchProperties()
-  }, [filters])
+    fetchProperties(); // Don't pass filters as parameter since fetchProperties already uses the current filters
+  }, [fetchProperties]);
 
   const handleSearch = (query: string, searchFilters?: SearchFilters) => {
     // Convert string propertyType back to PropertyType enum if needed
-    let propertyType: PropertyType | undefined = undefined
+    let propertyType: PropertyType | undefined = undefined;
     if (searchFilters?.propertyType) {
       const typeMapping: Record<string, PropertyType> = {
-        'VILLA': PropertyType.VILLA,
-        'HOLIDAY_HOME': PropertyType.HOLIDAY_HOME,
-        'FARMLAND': PropertyType.FARMLAND,
-        'PLOT': PropertyType.PLOT,
-        'APARTMENT': PropertyType.APARTMENT,
-        'RESIDENTIAL_PLOT': PropertyType.PLOT // Map to PLOT for now
-      }
-      propertyType = typeMapping[searchFilters.propertyType]
+        VILLA: PropertyType.VILLA,
+        HOLIDAY_HOME: PropertyType.HOLIDAY_HOME,
+        FARMLAND: PropertyType.FARMLAND,
+        PLOT: PropertyType.PLOT,
+        APARTMENT: PropertyType.APARTMENT,
+        RESIDENTIAL_PLOT: PropertyType.RESIDENTIAL_PLOT,
+      };
+      propertyType = typeMapping[searchFilters.propertyType];
     }
 
     // Create enhanced filters that include natural language parameters
-    const newFilters = { 
-      ...filters, 
-      search: query, 
+    const newFilters = {
+      ...filters,
+      search: query,
       propertyType: propertyType,
       location: searchFilters?.location || undefined,
       bedrooms: searchFilters?.bedrooms || undefined,
       minPrice: searchFilters?.minPrice || undefined,
       maxPrice: searchFilters?.maxPrice || undefined,
-      page: 1 
-    }
-    
-    setFilters(newFilters)
-    updateURL(newFilters)
-    
+      page: 1,
+    };
+
+    setFilters(newFilters);
+    updateURL(newFilters);
+
     // Track search with additional natural language data
     trackSearch(query, {
       propertyType: propertyType,
-      source: 'properties_page',
+      source: "properties_page",
       isNaturalLanguage: searchFilters?.isNaturalLanguage,
       bedrooms: searchFilters?.bedrooms,
       location: searchFilters?.location,
       minPrice: searchFilters?.minPrice,
       maxPrice: searchFilters?.maxPrice,
-      keywords: searchFilters?.keywords
-    })
-  }
+      keywords: searchFilters?.keywords,
+    });
+  };
 
   const handleFilterChange = (newFilters: Partial<PropertyFilters>) => {
-    const updatedFilters = { ...filters, ...newFilters, page: 1 } // Reset to page 1 on filter change
-    setFilters(updatedFilters)
-    updateURL(updatedFilters)
-    
+    const updatedFilters = { ...filters, ...newFilters, page: 1 }; // Reset to page 1 on filter change
+    setFilters(updatedFilters);
+    updateURL(updatedFilters);
+
     // Track filter usage
-    trackSearch('', {
+    trackSearch("", {
       ...updatedFilters,
-      source: 'filter_change'
-    })
-  }
+      source: "filter_change",
+    });
+  };
 
   const handlePageChange = (page: number) => {
-    const updatedFilters = { ...filters, page }
-    setFilters(updatedFilters)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+    const updatedFilters = { ...filters, page };
+    setFilters(updatedFilters);
+    updateURL(updatedFilters); // Fix: Update URL with new page number
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const handlePropertySelect = (property: Property) => {
-    setSelectedProperty(property)
-    
+    setSelectedProperty(property);
+
     // Scroll to property card in list view if map is visible
     if (mapView) {
-      const propertyElement = document.getElementById(`property-${property.id}`)
+      const propertyElement = document.getElementById(
+        `property-${property.id}`
+      );
       if (propertyElement) {
-        propertyElement.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center' 
-        })
+        propertyElement.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
       }
     }
-  }
+  };
 
   const handleMapToggle = () => {
-    const newMapView = !mapView
-    setMapView(newMapView)
-    
-    // If enabling map view, fetch properties with current bounds
-    if (newMapView && mapBounds) {
-      fetchProperties(filters, mapBounds)
+    const newMapView = !mapView;
+    setMapView(newMapView);
+
+    // If disabling map view, fetch properties without bounds
+    if (!newMapView) {
+      fetchProperties(); // Use current filters from state
     }
-  }
+    // If enabling map view, don't filter by bounds until bounds are actually set
+    // The onBoundsChange will handle the initial bounds setting
+  };
 
   // Helper function to update URL parameters
   const updateURL = (currentFilters: PropertyFilters) => {
-    const params = new URLSearchParams()
-    
+    const params = new URLSearchParams();
+
     if (currentFilters.search) {
-      params.set('search', currentFilters.search)
+      params.set("search", currentFilters.search);
     }
-    
+
     if (currentFilters.propertyType) {
       // Convert PropertyType enum back to URL-friendly format
       const typeMapping: Record<PropertyType, string> = {
-        [PropertyType.VILLA]: 'villa',
-        [PropertyType.HOLIDAY_HOME]: 'holiday-home',
-        [PropertyType.FARMLAND]: 'farmland',
-        [PropertyType.PLOT]: 'plot',
-        [PropertyType.APARTMENT]: 'apartment'
-      }
-      params.set('type', typeMapping[currentFilters.propertyType])
+        [PropertyType.VILLA]: "villa",
+        [PropertyType.HOLIDAY_HOME]: "holiday-home",
+        [PropertyType.FARMLAND]: "farmland",
+        [PropertyType.PLOT]: "plot",
+        [PropertyType.APARTMENT]: "apartment",
+        [PropertyType.RESIDENTIAL_PLOT]: "residential-plot",
+      };
+      params.set("type", typeMapping[currentFilters.propertyType]);
     }
-    
+
     if (currentFilters.featured !== undefined) {
-      params.set('featured', currentFilters.featured.toString())
+      params.set("featured", currentFilters.featured.toString());
     }
-    
+
     // Add natural language search parameters to URL
     if (currentFilters.location) {
-      params.set('location', currentFilters.location)
+      params.set("location", currentFilters.location);
     }
-    
+
     if (currentFilters.bedrooms) {
-      params.set('bedrooms', currentFilters.bedrooms.toString())
+      params.set("bedrooms", currentFilters.bedrooms.toString());
     }
-    
+
     if (currentFilters.minPrice) {
-      params.set('minPrice', currentFilters.minPrice.toString())
+      params.set("minPrice", currentFilters.minPrice.toString());
     }
-    
+
     if (currentFilters.maxPrice) {
-      params.set('maxPrice', currentFilters.maxPrice.toString())
+      params.set("maxPrice", currentFilters.maxPrice.toString());
     }
-    
+
+    if (currentFilters.viewType) {
+      params.set("viewType", currentFilters.viewType);
+    }
+
+    // Add page parameter to URL (only if not page 1)
+    if (currentFilters.page && currentFilters.page > 1) {
+      params.set("page", currentFilters.page.toString());
+    }
+
     // Update URL without causing a page reload
-    const newURL = params.toString() ? `${pathname}?${params.toString()}` : pathname
-    router.replace(newURL, { scroll: false })
-  }
+    const newURL = params.toString()
+      ? `${pathname}?${params.toString()}`
+      : pathname;
+    router.replace(newURL, { scroll: false });
+  };
 
   // Memoized grid configuration based on map view
   const gridCols = useMemo(() => {
-    return mapView ? 'md:grid-cols-1 lg:grid-cols-2' : 'md:grid-cols-2 lg:grid-cols-3'
-  }, [mapView])
+    return mapView
+      ? "md:grid-cols-1 lg:grid-cols-2"
+      : "md:grid-cols-2 lg:grid-cols-3";
+  }, [mapView]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -359,7 +444,7 @@ export default function PropertiesPageContent() {
           {/* Search Bar */}
           <div className="flex gap-4 mb-4">
             <div className="flex-1 max-w-2xl">
-              <OptimizedSearch 
+              <OptimizedSearch
                 variant="page"
                 placeholder="Try: '2bhk holiday home in goa under 2cr' or search by type, location..."
                 onSearch={handleSearch}
@@ -369,11 +454,7 @@ export default function PropertiesPageContent() {
                 className="w-full"
               />
             </div>
-            <Button 
-              type="button"
-              variant="outline"
-              onClick={handleMapToggle}
-            >
+            <Button type="button" variant="outline" onClick={handleMapToggle}>
               {mapView ? (
                 <>
                   <Grid3X3 className="w-4 h-4 mr-2" />
@@ -394,7 +475,9 @@ export default function PropertiesPageContent() {
                 disabled={loading}
                 title="Refresh properties in current map area"
               >
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+                />
               </Button>
             )}
           </div>
@@ -402,9 +485,18 @@ export default function PropertiesPageContent() {
           {/* Quick Filters */}
           <div className="flex flex-wrap gap-2">
             <Button
-              variant={filters.featured === undefined && !filters.propertyType ? "default" : "outline"}
+              variant={
+                filters.featured === undefined && !filters.propertyType
+                  ? "default"
+                  : "outline"
+              }
               size="sm"
-              onClick={() => handleFilterChange({ featured: undefined, propertyType: undefined })}
+              onClick={() =>
+                handleFilterChange({
+                  featured: undefined,
+                  propertyType: undefined,
+                })
+              }
             >
               All Properties
             </Button>
@@ -416,25 +508,84 @@ export default function PropertiesPageContent() {
               Featured
             </Button>
             <Button
-              variant={filters.propertyType === PropertyType.VILLA ? "default" : "outline"}
+              variant={
+                filters.propertyType === PropertyType.VILLA
+                  ? "default"
+                  : "outline"
+              }
               size="sm"
-              onClick={() => handleFilterChange({ propertyType: PropertyType.VILLA })}
+              onClick={() =>
+                handleFilterChange({ propertyType: PropertyType.VILLA })
+              }
             >
               Villas
             </Button>
             <Button
-              variant={filters.propertyType === PropertyType.HOLIDAY_HOME ? "default" : "outline"}
+              variant={
+                filters.propertyType === PropertyType.HOLIDAY_HOME
+                  ? "default"
+                  : "outline"
+              }
               size="sm"
-              onClick={() => handleFilterChange({ propertyType: PropertyType.HOLIDAY_HOME })}
+              onClick={() =>
+                handleFilterChange({ propertyType: PropertyType.HOLIDAY_HOME })
+              }
             >
               Holiday Homes
             </Button>
             <Button
-              variant={filters.propertyType === PropertyType.FARMLAND ? "default" : "outline"}
+              variant={
+                filters.propertyType === PropertyType.FARMLAND
+                  ? "default"
+                  : "outline"
+              }
               size="sm"
-              onClick={() => handleFilterChange({ propertyType: PropertyType.FARMLAND })}
+              onClick={() =>
+                handleFilterChange({ propertyType: PropertyType.FARMLAND })
+              }
             >
-              Farmlands
+              Managed Farmlands
+            </Button>
+            <Button
+              variant={
+                filters.propertyType === PropertyType.PLOT
+                  ? "default"
+                  : "outline"
+              }
+              size="sm"
+              onClick={() =>
+                handleFilterChange({ propertyType: PropertyType.PLOT })
+              }
+            >
+              Plots
+            </Button>
+            <Button
+              variant={
+                filters.propertyType === PropertyType.APARTMENT
+                  ? "default"
+                  : "outline"
+              }
+              size="sm"
+              onClick={() =>
+                handleFilterChange({ propertyType: PropertyType.APARTMENT })
+              }
+            >
+              Apartments
+            </Button>
+            <Button
+              variant={
+                filters.propertyType === PropertyType.RESIDENTIAL_PLOT
+                  ? "default"
+                  : "outline"
+              }
+              size="sm"
+              onClick={() =>
+                handleFilterChange({
+                  propertyType: PropertyType.RESIDENTIAL_PLOT,
+                })
+              }
+            >
+              Residential Plots
             </Button>
           </div>
 
@@ -458,7 +609,9 @@ export default function PropertiesPageContent() {
         {/* Results Header */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-900">
-            {filters.search ? `Search Results for "${filters.search}"` : 'All Properties'}
+            {filters.search
+              ? `Search Results for "${filters.search}"`
+              : "All Properties"}
             <span className="text-gray-500 font-normal ml-2">
               ({pagination?.total || properties.length} properties)
             </span>
@@ -466,13 +619,24 @@ export default function PropertiesPageContent() {
         </div>
 
         {/* Main Content - Side by Side Layout */}
-        <div className="flex gap-8">
+        <div
+          className={`flex ${
+            mapView ? "gap-8" : ""
+          } transition-all duration-300`}
+        >
           {/* Properties List */}
-          <div className={`${mapView ? 'lg:w-1/2' : 'w-full'} transition-all duration-300`}>
+          <div
+            className={`${
+              mapView ? "lg:w-1/2" : "w-full"
+            } transition-all duration-300`}
+          >
             {loading ? (
               <div className={`grid grid-cols-1 ${gridCols} gap-6`}>
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="bg-white rounded-lg shadow-sm h-96 animate-pulse" />
+                  <div
+                    key={i}
+                    className="bg-white rounded-lg shadow-sm h-96 animate-pulse"
+                  />
                 ))}
               </div>
             ) : properties.length > 0 ? (
@@ -483,14 +647,14 @@ export default function PropertiesPageContent() {
                       key={property.id}
                       id={`property-${property.id}`}
                       className={`transition-all duration-200 ${
-                        selectedProperty?.id === property.id 
-                          ? 'ring-2 ring-blue-500 ring-opacity-50 transform scale-[1.02]' 
-                          : ''
+                        selectedProperty?.id === property.id
+                          ? "ring-2 ring-blue-500 ring-opacity-50 transform scale-[1.02]"
+                          : ""
                       }`}
                       onClick={() => handlePropertySelect(property)}
                     >
-                      <PropertyCard 
-                        property={property} 
+                      <PropertyCard
+                        property={property}
                         isSelected={selectedProperty?.id === property.id}
                       />
                     </div>
@@ -510,10 +674,10 @@ export default function PropertiesPageContent() {
                       <ChevronLeft className="w-4 h-4" />
                       Previous
                     </Button>
-                    
+
                     <div className="flex gap-1">
                       {[...Array(pagination.pages)].map((_, i) => {
-                        const page = i + 1
+                        const page = i + 1;
                         if (
                           page === 1 ||
                           page === pagination.pages ||
@@ -522,21 +686,30 @@ export default function PropertiesPageContent() {
                           return (
                             <Button
                               key={page}
-                              variant={page === filters.page ? "default" : "outline"}
+                              variant={
+                                page === filters.page ? "default" : "outline"
+                              }
                               size="sm"
                               onClick={() => handlePageChange(page)}
                               className="w-10"
                             >
                               {page}
                             </Button>
-                          )
-                        } else if (page === filters.page - 2 || page === filters.page + 2) {
-                          return <span key={page} className="px-2">...</span>
+                          );
+                        } else if (
+                          page === filters.page - 2 ||
+                          page === filters.page + 2
+                        ) {
+                          return (
+                            <span key={page} className="px-2">
+                              ...
+                            </span>
+                          );
                         }
-                        return null
+                        return null;
                       })}
                     </div>
-                    
+
                     <Button
                       variant="outline"
                       size="sm"
@@ -553,27 +726,35 @@ export default function PropertiesPageContent() {
                 {/* Pagination Info */}
                 {pagination && (
                   <div className="text-center mt-4 text-sm text-gray-600">
-                    Showing {((filters.page - 1) * pagination.limit) + 1} to {Math.min(filters.page * pagination.limit, pagination.total)} of {pagination.total} properties
+                    Showing {(filters.page - 1) * pagination.limit + 1} to{" "}
+                    {Math.min(
+                      filters.page * pagination.limit,
+                      pagination.total
+                    )}{" "}
+                    of {pagination.total} properties
                   </div>
                 )}
               </>
             ) : (
               <div className="text-center py-12">
                 <Home className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">No properties found</h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  No properties found
+                </h3>
                 <p className="text-gray-600 mb-4">
-                  {mapView 
+                  {mapView
                     ? "Try zooming out or moving the map to see more properties."
-                    : "Try adjusting your search criteria or browse all properties."
-                  }
+                    : "Try adjusting your search criteria or browse all properties."}
                 </p>
-                <Button onClick={() => {
-                  const resetFilters = { page: 1, limit: 50 }
-                  setFilters(resetFilters)
-                  updateURL(resetFilters)
-                  setSelectedProperty(null)
-                  setMapBounds(null)
-                }}>
+                <Button
+                  onClick={() => {
+                    const resetFilters = { page: 1, limit: 50 };
+                    setFilters(resetFilters);
+                    updateURL(resetFilters);
+                    setSelectedProperty(null);
+                    setMapBounds(null);
+                  }}
+                >
                   View All Properties
                 </Button>
               </div>
@@ -584,7 +765,7 @@ export default function PropertiesPageContent() {
           {mapView && (
             <div className="lg:w-1/2">
               <div className="sticky top-24 h-[600px] rounded-lg overflow-hidden shadow-lg">
-                <PropertyMap 
+                <PropertyMap
                   properties={properties}
                   selectedProperty={selectedProperty}
                   onPropertySelect={handlePropertySelect}
@@ -596,10 +777,9 @@ export default function PropertiesPageContent() {
         </div>
       </div>
     </div>
-  )
-} 
-
+  );
+}
 
 //zoom out for perticular level
-//search to location 
-// lat long for all properties for search function 
+//search to location
+// lat long for all properties for search function

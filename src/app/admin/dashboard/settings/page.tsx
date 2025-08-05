@@ -515,6 +515,7 @@ export default function AdminSettings() {
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
+                        aria-label="Enable tracking"
                         checked={settings.trackingEnabled}
                         onChange={(e) => updateSetting('trackingEnabled', e.target.checked)}
                         className="sr-only peer"
@@ -559,6 +560,7 @@ export default function AdminSettings() {
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
+                        aria-label="Maintenance mode"
                         checked={settings.maintenanceMode}
                         onChange={(e) => updateSetting('maintenanceMode', e.target.checked)}
                         className="sr-only peer"
@@ -574,6 +576,7 @@ export default function AdminSettings() {
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
+                        aria-label="Allow registration"
                         checked={settings.allowRegistration}
                         onChange={(e) => updateSetting('allowRegistration', e.target.checked)}
                         className="sr-only peer"
@@ -589,6 +592,7 @@ export default function AdminSettings() {
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
+                        aria-label="Require email verification"
                         checked={settings.requireEmailVerification}
                         onChange={(e) => updateSetting('requireEmailVerification', e.target.checked)}
                         className="sr-only peer"
@@ -665,6 +669,7 @@ export default function AdminSettings() {
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
+                        aria-label="Enable comments"
                         checked={settings.enableComments}
                         onChange={(e) => updateSetting('enableComments', e.target.checked)}
                         className="sr-only peer"
@@ -680,6 +685,7 @@ export default function AdminSettings() {
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
+                        aria-label="Moderate comments"
                         checked={settings.moderateComments}
                         onChange={(e) => updateSetting('moderateComments', e.target.checked)}
                         className="sr-only peer"
@@ -704,6 +710,7 @@ export default function AdminSettings() {
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
+                        aria-label="Email notifications"
                         checked={settings.emailNotifications}
                         onChange={(e) => updateSetting('emailNotifications', e.target.checked)}
                         className="sr-only peer"
@@ -719,6 +726,7 @@ export default function AdminSettings() {
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
+                        aria-label="SMS notifications"
                         checked={settings.smsNotifications}
                         onChange={(e) => updateSetting('smsNotifications', e.target.checked)}
                         className="sr-only peer"
@@ -734,6 +742,7 @@ export default function AdminSettings() {
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
+                        aria-label="Push notifications"
                         checked={settings.pushNotifications}
                         onChange={(e) => updateSetting('pushNotifications', e.target.checked)}
                         className="sr-only peer"

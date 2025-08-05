@@ -1,127 +1,136 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { Calendar, User, ArrowRight, Search, Eye, Tag, ChevronLeft, ChevronRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import {
+  Calendar,
+  User,
+  ArrowRight,
+  Search,
+  Eye,
+  Tag,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
 interface BlogPost {
-  id: string
-  title: string
-  slug: string
-  excerpt: string
-  author: string
-  category: string
-  tags: string[]
-  featuredImage: string
-  featured: boolean
-  views: number
-  publishedAt: string
-  createdAt: string
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  author: string;
+  category: string;
+  tags: string[];
+  featuredImage: string;
+  featured: boolean;
+  views: number;
+  publishedAt: string;
+  createdAt: string;
 }
 
 interface Category {
-  name: string
-  count: number
+  name: string;
+  count: number;
 }
 
 interface PaginationData {
-  page: number
-  limit: number
-  total: number
-  pages: number
-  hasNext: boolean
-  hasPrev: boolean
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
+  hasPrev: boolean;
 }
 
 export default function BlogClient() {
-  const [posts, setPosts] = useState<BlogPost[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedCategory, setSelectedCategory] = useState('All')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pagination, setPagination] = useState<PaginationData | null>(null)
+  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState<PaginationData | null>(null);
 
   useEffect(() => {
-    fetchCategories()
-  }, [])
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
-    fetchPosts()
-  }, [selectedCategory, searchQuery, currentPage])
+    fetchPosts();
+  }, [selectedCategory, searchQuery, currentPage]);
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/blog/categories')
+      const response = await fetch("/api/blog/categories");
       if (response.ok) {
-        const result = await response.json()
+        const result = await response.json();
         if (result.success) {
-          setCategories(result.data)
+          setCategories(result.data);
         }
       }
     } catch (error) {
-      console.error('Error fetching categories:', error)
+      console.error("Error fetching categories:", error);
     }
-  }
+  };
 
   const fetchPosts = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
       const params = new URLSearchParams({
         page: currentPage.toString(),
-        limit: '9'
-      })
+        // Remove hardcoded limit - let API use default settings
+      });
 
-      if (selectedCategory !== 'All') {
-        params.append('category', selectedCategory)
+      if (selectedCategory !== "All") {
+        params.append("category", selectedCategory);
       }
 
       if (searchQuery.trim()) {
-        params.append('search', searchQuery.trim())
+        params.append("search", searchQuery.trim());
       }
 
-      const response = await fetch(`/api/blog?${params}`)
+      const response = await fetch(`/api/blog?${params}`);
       if (response.ok) {
-        const result = await response.json()
+        const result = await response.json();
         if (result.success) {
-          setPosts(result.data)
-          setPagination(result.pagination)
+          setPosts(result.data);
+          setPagination(result.pagination);
         }
       }
     } catch (error) {
-      console.error('Error fetching posts:', error)
+      console.error("Error fetching posts:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleCategoryChange = (category: string) => {
-    setSelectedCategory(category)
-    setCurrentPage(1)
-  }
+    setSelectedCategory(category);
+    setCurrentPage(1);
+  };
 
   const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    setCurrentPage(1)
-    fetchPosts()
-  }
+    e.preventDefault();
+    setCurrentPage(1);
+    fetchPosts();
+  };
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  }
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -133,10 +142,24 @@ export default function BlogClient() {
               Avacasa Blog
             </h1>
             <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-              Expert insights, investment guides, and market updates to help you make informed decisions 
-              about <Link href="/properties?type=holiday-home" className="text-blue-600 hover:underline">holiday homes</Link> and <Link href="/properties?type=farmland" className="text-blue-600 hover:underline">farmland investments</Link>.
+              Expert insights, investment guides, and market updates to help you
+              make informed decisions about{" "}
+              <Link
+                href="/properties?type=holiday-home"
+                className="text-blue-600 hover:underline"
+              >
+                holiday homes
+              </Link>{" "}
+              and{" "}
+              <Link
+                href="/properties?type=farmland"
+                className="text-blue-600 hover:underline"
+              >
+                farmland investments
+              </Link>
+              .
             </p>
-            
+
             {/* Search Bar
             <form onSubmit={handleSearch} className="max-w-md mx-auto">
               <div className="relative">
@@ -168,12 +191,14 @@ export default function BlogClient() {
             {categories.map((category) => (
               <Button
                 key={category.name}
-                variant={category.name === selectedCategory ? "default" : "outline"}
+                variant={
+                  category.name === selectedCategory ? "default" : "outline"
+                }
                 size="sm"
                 onClick={() => handleCategoryChange(category.name)}
                 className={`${
-                  category.name === selectedCategory 
-                    ? "bg-gray-900 hover:bg-gray-800 text-white" 
+                  category.name === selectedCategory
+                    ? "bg-gray-900 hover:bg-gray-800 text-white"
                     : "border-gray-200 text-gray-700 hover:bg-gray-50"
                 } transition-all duration-200`}
               >
@@ -193,7 +218,10 @@ export default function BlogClient() {
           {loading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {[...Array(9)].map((_, i) => (
-                <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden animate-pulse">
+                <div
+                  key={i}
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden animate-pulse"
+                >
                   <div className="aspect-[4/3] bg-gray-200"></div>
                   <div className="p-6">
                     <div className="h-4 bg-gray-200 rounded mb-3"></div>
@@ -208,7 +236,10 @@ export default function BlogClient() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {posts.map((post) => (
-                  <article key={post.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 group">
+                  <article
+                    key={post.id}
+                    className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-lg transition-all duration-300 group"
+                  >
                     <div className="relative aspect-[4/3] overflow-hidden">
                       <Image
                         src={post.featuredImage}
@@ -229,14 +260,12 @@ export default function BlogClient() {
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="p-6">
                       <h2 className="text-xl font-semibold text-gray-900 mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                        <Link href={`/blog/${post.slug}`}>
-                          {post.title}
-                        </Link>
+                        <Link href={`/blog/${post.slug}`}>{post.title}</Link>
                       </h2>
-                      
+
                       <p className="text-gray-600 mb-4 line-clamp-3">
                         {post.excerpt}
                       </p>
@@ -245,14 +274,18 @@ export default function BlogClient() {
                       {post.tags.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-4">
                           {post.tags.slice(0, 3).map((tag, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
+                            <Badge
+                              key={index}
+                              variant="outline"
+                              className="text-xs"
+                            >
                               <Tag className="w-3 h-3 mr-1" />
                               {tag}
                             </Badge>
                           ))}
                         </div>
                       )}
-                      
+
                       <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
                         <div className="flex items-center gap-4">
                           <div className="flex items-center gap-1">
@@ -269,7 +302,7 @@ export default function BlogClient() {
                           <span>{post.views?.toLocaleString() || 0}</span>
                         </div>
                       </div>
-                      
+
                       <Link
                         href={`/blog/${post.slug}`}
                         className="inline-flex items-center text-gray-700 hover:text-gray-900 font-medium transition-colors duration-300 group"
@@ -283,7 +316,7 @@ export default function BlogClient() {
               </div>
 
               {/* Pagination */}
-              {pagination && pagination.pages > 1 && (
+              {pagination && pagination.totalPages > 1 && (
                 <div className="flex justify-center items-center mt-12 gap-2">
                   <Button
                     variant="outline"
@@ -295,33 +328,42 @@ export default function BlogClient() {
                     <ChevronLeft className="w-4 h-4" />
                     Previous
                   </Button>
-                  
+
                   <div className="flex gap-1">
-                    {[...Array(pagination.pages)].map((_, i) => {
-                      const page = i + 1
+                    {[...Array(pagination.totalPages)].map((_, i) => {
+                      const page = i + 1;
                       if (
                         page === 1 ||
-                        page === pagination.pages ||
+                        page === pagination.totalPages ||
                         (page >= currentPage - 1 && page <= currentPage + 1)
                       ) {
                         return (
                           <Button
                             key={page}
-                            variant={page === currentPage ? "default" : "outline"}
+                            variant={
+                              page === currentPage ? "default" : "outline"
+                            }
                             size="sm"
                             onClick={() => handlePageChange(page)}
                             className="w-10"
                           >
                             {page}
                           </Button>
-                        )
-                      } else if (page === currentPage - 2 || page === currentPage + 2) {
-                        return <span key={page} className="px-2">...</span>
+                        );
+                      } else if (
+                        page === currentPage - 2 ||
+                        page === currentPage + 2
+                      ) {
+                        return (
+                          <span key={page} className="px-2">
+                            ...
+                          </span>
+                        );
                       }
-                      return null
+                      return null;
                     })}
                   </div>
-                  
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -337,15 +379,21 @@ export default function BlogClient() {
             </>
           ) : (
             <div className="text-center py-20">
-              <h3 className="text-2xl font-semibold text-gray-900 mb-4">No articles found</h3>
+              <h3 className="text-2xl font-semibold text-gray-900 mb-4">
+                No articles found
+              </h3>
               <p className="text-gray-600 mb-8">
-                {searchQuery ? `No articles match "${searchQuery}"` : 'No articles available in this category'}
+                {searchQuery
+                  ? `No articles match "${searchQuery}"`
+                  : "No articles available in this category"}
               </p>
-              <Button onClick={() => {
-                setSearchQuery('')
-                setSelectedCategory('All')
-                setCurrentPage(1)
-              }}>
+              <Button
+                onClick={() => {
+                  setSearchQuery("");
+                  setSelectedCategory("All");
+                  setCurrentPage(1);
+                }}
+              >
                 View All Articles
               </Button>
             </div>
@@ -361,7 +409,8 @@ export default function BlogClient() {
               Stay Updated with Market Insights
             </h2>
             <p className="text-xl text-gray-600 mb-8">
-              Get the latest real estate trends, investment tips, and exclusive property updates delivered to your inbox.
+              Get the latest real estate trends, investment tips, and exclusive
+              property updates delivered to your inbox.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
               <input
@@ -369,7 +418,10 @@ export default function BlogClient() {
                 placeholder="Enter your email"
                 className="flex-1 px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 transition-all duration-300"
               />
-              <Button size="lg" className="bg-gray-900 hover:bg-gray-800 transition-all duration-300">
+              <Button
+                size="lg"
+                className="bg-gray-900 hover:bg-gray-800 transition-all duration-300"
+              >
                 Subscribe
               </Button>
             </div>
@@ -384,16 +436,46 @@ export default function BlogClient() {
             Ready to Invest in Your Dream Property?
           </h2>
           <p className="text-xl mb-8 text-gray-300">
-            Explore our curated collection of <Link href="/properties?type=holiday-home" className="text-blue-400 hover:underline">holiday homes</Link>, <Link href="/properties?type=farmland" className="text-blue-400 hover:underline">farmlands</Link>, and <Link href="/properties?type=villa" className="text-blue-400 hover:underline">luxury villas</Link> in prime locations.
+            Explore our curated collection of{" "}
+            <Link
+              href="/properties?type=holiday-home"
+              className="text-blue-400 hover:underline"
+            >
+              holiday homes
+            </Link>
+            ,{" "}
+            <Link
+              href="/properties?type=farmland"
+              className="text-blue-400 hover:underline"
+            >
+              farmlands
+            </Link>
+            , and{" "}
+            <Link
+              href="/properties?type=villa"
+              className="text-blue-400 hover:underline"
+            >
+              luxury villas
+            </Link>{" "}
+            in prime locations.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="outline" className="bg-white text-gray-900 hover:bg-gray-100 border-white transition-all duration-300" asChild>
+            <Button
+              size="lg"
+              variant="outline"
+              className="bg-white text-gray-900 hover:bg-gray-100 border-white transition-all duration-300"
+              asChild
+            >
               <Link href="/properties">
                 Browse All Properties
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Link>
             </Button>
-            <Button size="lg" className="bg-blue-600 hover:bg-blue-700 transition-all duration-300" asChild>
+            <Button
+              size="lg"
+              className="bg-blue-600 hover:bg-blue-700 transition-all duration-300"
+              asChild
+            >
               <Link href="/locations">
                 Explore Locations
                 <ArrowRight className="w-5 h-5 ml-2" />
@@ -403,5 +485,5 @@ export default function BlogClient() {
         </div>
       </section>
     </div>
-  )
-} 
+  );
+}

@@ -10,17 +10,17 @@ const config: Config = {
     extend: {
       colors: {
         primary: {
-          50: "#EBF4FF",
-          100: "#C3DAFE",
-          200: "#A3BFFA",
-          300: "#7F9CF5",
-          400: "#667EEA",
-          500: "#5A67D8",
-          600: "#4C51BF",
-          700: "#434190",
-          800: "#3C366B",
-          900: "#302E47",
-          DEFAULT: "#5A67D8",
+          50: "#FFF7ED",
+          100: "#FFEDD5",
+          200: "#FED7AA",
+          300: "#FDBA74",
+          400: "#FB923C",
+          500: "#F97316",
+          600: "#EA580C",
+          700: "#C2410C",
+          800: "#9A3412",
+          900: "#7C2D12",
+          DEFAULT: "#F97316",
         },
         secondary: {
           50: "#E6FFFA",
@@ -47,6 +47,18 @@ const config: Config = {
           800: "#7B341E",
           900: "#652B19",
           DEFAULT: "#ED8936",
+        },
+        orange: {
+          50: "#FFF7ED",
+          100: "#FFEDD5",
+          200: "#FED7AA",
+          300: "#FDBA74",
+          400: "#FB923C",
+          500: "#F97316",
+          600: "#EA580C",
+          700: "#C2410C",
+          800: "#9A3412",
+          900: "#7C2D12",
         },
         gray: {
           50: "#F9FAFB",
@@ -119,4 +131,4 @@ const config: Config = {
   plugins: [],
 };
 
-export default config; 
+export default config;

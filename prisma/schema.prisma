@@ -10,13 +10,13 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "mongodb"
   url      = env("DATABASE_URL")
 }
 
 // Admin and User Authentication Models
 model Admin {
-  id        String   @id @default(cuid())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   email     String   @unique
   password  String   // hashed password
   name      String
@@ -30,7 +30,7 @@ model Admin {
 }
 
 model User {
-  id        String   @id @default(cuid())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   email     String   @unique
   password  String?  // hashed password (optional for social login)
   name      String?
@@ -55,8 +55,8 @@ model User {
 }
 
 model UserSession {
-  id        String   @id @default(cuid())
-  userId    String
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token     String   @unique
   ipAddress String?
@@ -68,8 +68,8 @@ model UserSession {
 }
 
 model UserActivity {
-  id        String       @id @default(cuid())
-  userId    String?
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String?   @db.ObjectId
   user      User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
   sessionId String?      // For anonymous tracking
   action    ActivityType
@@ -84,10 +84,10 @@ model UserActivity {
 }
 
 model UserFavorite {
-  id         String   @id @default(cuid())
-  userId     String
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String   @db.ObjectId
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  propertyId String
+  propertyId String   @db.ObjectId
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
 
@@ -97,8 +97,8 @@ model UserFavorite {
 
 // Rating and Review System
 model Rating {
-  id         String   @id @default(cuid())
-  propertyId String
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  propertyId String   @db.ObjectId
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   userId     String?
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -118,7 +118,7 @@ model Rating {
 
 // Email Marketing
 model EmailSubscriber {
-  id          String    @id @default(cuid())
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
   email       String    @unique
   name        String?
   source      String?   // newsletter, property_alert, etc.
@@ -133,7 +133,7 @@ model EmailSubscriber {
 
 // Existing models with updates
 model Location {
-  id           String     @id @default(cuid())
+  id           String     @id @default(auto()) @map("_id") @db.ObjectId
   name         String
   slug         String     @unique
   description  String
@@ -152,13 +152,13 @@ model Location {
 }
 
 model Property {
-  id           String        @id @default(cuid())
+  id           String        @id @default(auto()) @map("_id") @db.ObjectId
   title        String
   slug         String        @unique
   description  String
   price        String        // Using String for Decimal compatibility with SQLite
   location     Location      @relation(fields: [locationId], references: [id])
-  locationId   String
+  locationId   String        @db.ObjectId
   propertyType PropertyType
   bedrooms     Int
   bathrooms    Int
@@ -216,7 +216,7 @@ model Property {
 }
 
 model Inquiry {
-  id            String       @id @default(cuid())
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
   property      Property     @relation(fields: [propertyId], references: [id])
   propertyId    String
   userId        String?
@@ -237,7 +237,7 @@ model Inquiry {
 }
 
 model BlogPost {
-  id           String      @id @default(cuid())
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
   title        String
   slug         String      @unique
   excerpt      String
@@ -258,7 +258,7 @@ model BlogPost {
 }
 
 model ContactSubmission {
-  id        String           @id @default(cuid())
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
   name      String
   email     String?
   phone     String?
@@ -275,7 +275,7 @@ model ContactSubmission {
 }
 
 model SiteSettings {
-  id        String   @id @default("settings")
+  id        String   @id @default("settings") @map("_id")
   data      String   // JSON string of all site settings
   updatedAt DateTime @updatedAt
 
@@ -284,9 +284,9 @@ model SiteSettings {
 
 // Analytics and Tracking
 model PageView {
-  id        String   @id @default(cuid())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   path      String
-  userId    String?
+  userId    String?   @db.ObjectId
   sessionId String?
   ipAddress String?
   userAgent String?
@@ -297,11 +297,11 @@ model PageView {
 }
 
 model SearchQuery {
-  id        String   @id @default(cuid())
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
   query     String
   filters   String?  // JSON string of applied filters
   results   Int      @default(0)
-  userId    String?
+  userId    String?   @db.ObjectId
   sessionId String?
   ipAddress String?
   createdAt DateTime @default(now())
