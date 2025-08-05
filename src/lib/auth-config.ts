@@ -1,11 +1,11 @@
-import { NextAuthOptions } from "next-auth"
+import NextAuth from "next-auth";
 // import GoogleProvider from "next-auth/providers/google"
-import { PrismaAdapter } from "@auth/prisma-adapter"
-import { prisma } from "./db"
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import { prisma } from "./db";
 
-const ALLOWED_ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@example.com"
+const ALLOWED_ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@example.com";
 
-export const authOptions: NextAuthOptions = {
+export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma) as any,
   providers: [
     // Temporarily commented out Google provider
@@ -21,7 +21,7 @@ export const authOptions: NextAuthOptions = {
     //   if (user.email !== ALLOWED_ADMIN_EMAIL) {
     //     return false
     //   }
-      
+
     //   // Check if this is the first time signing in
     //   const existingAdmin = await prisma.admin.findUnique({
     //     where: { email: user.email }
@@ -51,24 +51,24 @@ export const authOptions: NextAuthOptions = {
       if (account && user) {
         // Get admin data
         const admin = await prisma.admin.findUnique({
-          where: { email: user.email! }
-        })
-        
+          where: { email: user.email! },
+        });
+
         if (admin) {
-          token.adminId = admin.id
-          token.role = admin.role
-          token.isAdmin = true
+          token.adminId = admin.id;
+          token.role = admin.role;
+          token.isAdmin = true;
         }
       }
-      return token
+      return token;
     },
     async session({ session, token }) {
       if (token.isAdmin) {
-        session.user.adminId = token.adminId as string
-        session.user.role = token.role as string
-        session.user.isAdmin = true
+        session.user.adminId = token.adminId as string;
+        session.user.role = token.role as string;
+        session.user.isAdmin = true;
       }
-      return session
+      return session;
     },
   },
   pages: {
@@ -78,4 +78,18 @@ export const authOptions: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
-} 
+});
+
+// For backward compatibility, also export the config
+export const authOptions = {
+  adapter: PrismaAdapter(prisma) as any,
+  providers: [],
+  callbacks: {},
+  pages: {
+    signIn: "/admin/login",
+    error: "/admin/login",
+  },
+  session: {
+    strategy: "jwt" as const,
+  },
+};
