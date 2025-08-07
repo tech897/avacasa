@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import { Suspense } from 'react'
 import PropertiesPageContent from '@/app/properties/properties-content'
 
 export const metadata: Metadata = {
@@ -122,7 +123,9 @@ export default function IntegratedMapDemo() {
       </div>
 
       {/* Interactive Demo */}
-      <PropertiesPageContent />
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="text-lg">Loading demo...</div></div>}>
+        <PropertiesPageContent />
+      </Suspense>
 
       {/* Implementation Details */}
       <div className="bg-gray-50 py-12">
