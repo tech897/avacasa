@@ -108,10 +108,22 @@ temp/
 /exports/
 /migration-sql*/
 
-# Scripts that may contain sensitive data
-/scripts/production-image-migration.js
-/scripts/*gdrive*.js
-/scripts/*migration*.js
+# Scripts and utilities (not needed for production)
+/scripts/
+/extras/
+import-properties-from-csv.js
+test-nl-search.js
+fix-params.sh
+
+# Documentation (keep only essential)
+/documents/
+OPTIMIZED_SEARCH_IMPLEMENTATION.md
+
+# CSV files and data
+*.csv
+
+# TypeScript build info
+tsconfig.tsbuildinfo
 
 # Generated Prisma files (will be regenerated)
 /src/generated/
