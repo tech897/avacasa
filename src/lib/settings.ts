@@ -65,9 +65,9 @@ export const defaultSettings: SiteSettings = {
   siteDescription:
     "Premium Real Estate Platform for Holiday Homes and Investment Properties",
   siteUrl: "https://avacasa.life",
-  contactEmail: "contact@avacasa.life",
-  contactPhone: "+91 9876543210",
-  address: "Mumbai, Maharashtra, India",
+  contactEmail: "shiva@avacasa.life",
+  contactPhone: "9390660926",
+  address: "Bengaluru, Karnataka, India",
   metaTitle: "Avacasa - Premium Real Estate Platform",
   metaDescription:
     "Discover premium holiday homes, farmlands, and investment properties. Your trusted partner in real estate investment.",

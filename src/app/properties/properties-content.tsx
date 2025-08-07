@@ -176,8 +176,11 @@ export default function PropertiesPageContent() {
       }
     }
 
-    console.log('🔍 URL Search Params:', Object.fromEntries(searchParams.entries()));
-    console.log('🎯 Parsed Filters:', urlFilters);
+    console.log(
+      "🔍 URL Search Params:",
+      Object.fromEntries(searchParams.entries())
+    );
+    console.log("🎯 Parsed Filters:", urlFilters);
     setFilters(urlFilters);
   }, [searchParams]);
 
@@ -192,7 +195,7 @@ export default function PropertiesPageContent() {
       setLoading(true);
       try {
         const filtersToUse = currentFilters || filters;
-        console.log('🚀 Fetching properties with filters:', filtersToUse);
+        console.log("🚀 Fetching properties with filters:", filtersToUse);
         const searchParams = new URLSearchParams();
 
         if (filtersToUse.search)

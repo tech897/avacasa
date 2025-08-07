@@ -1,54 +1,52 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-import { getContentSettings } from '@/lib/settings'
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { getContentSettings } from "@/lib/settings";
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const requestedLimit = parseInt(searchParams.get('limit') || '0')
-    const category = searchParams.get('category')
-    const featured = searchParams.get('featured')
-    const search = searchParams.get('search')
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1");
+    const requestedLimit = parseInt(searchParams.get("limit") || "0");
+    const category = searchParams.get("category");
+    const featured = searchParams.get("featured");
+    const search = searchParams.get("search");
 
     // Get content settings for blog posts per page
-    const contentSettings = await getContentSettings()
-    
-    // Use settings-based limit if no specific limit is requested
-    const limit = requestedLimit > 0 ? requestedLimit : contentSettings.blogPostsPerPage
+    const contentSettings = await getContentSettings();
 
-    const skip = (page - 1) * limit
+    // Use settings-based limit if no specific limit is requested
+    const limit =
+      requestedLimit > 0 ? requestedLimit : contentSettings.blogPostsPerPage;
+
+    const skip = (page - 1) * limit;
 
     // Build where clause
     const where: any = {
-      status: 'PUBLISHED',
-      active: true
+      status: "PUBLISHED",
+      active: true,
+    };
+
+    if (category && category !== "All") {
+      where.category = category;
     }
 
-    if (category && category !== 'All') {
-      where.category = category
-    }
-
-    if (featured === 'true') {
-      where.featured = true
+    if (featured === "true") {
+      where.featured = true;
     }
 
     if (search) {
       where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { excerpt: { contains: search, mode: 'insensitive' } },
-        { content: { contains: search, mode: 'insensitive' } }
-      ]
+        { title: { contains: search, mode: "insensitive" } },
+        { excerpt: { contains: search, mode: "insensitive" } },
+        { content: { contains: search, mode: "insensitive" } },
+      ];
     }
 
     // Get posts with pagination
     const [posts, total] = await Promise.all([
       prisma.blogPost.findMany({
         where,
-        orderBy: [
-          { featured: 'desc' },
-          { publishedAt: 'desc' }
-        ],
+        orderBy: [{ featured: "desc" }, { publishedAt: "desc" }],
         skip,
         take: limit,
         select: {
@@ -63,19 +61,19 @@ export async function GET(request: NextRequest) {
           featured: true,
           views: true,
           publishedAt: true,
-          createdAt: true
-        }
+          createdAt: true,
+        },
       }),
-      prisma.blogPost.count({ where })
-    ])
+      prisma.blogPost.count({ where }),
+    ]);
 
     // Parse tags for each post
-    const parsedPosts = posts.map(post => ({
+    const parsedPosts = posts.map((post) => ({
       ...post,
-      tags: post.tags ? JSON.parse(post.tags) : []
-    }))
+      tags: post.tags ? JSON.parse(post.tags) : [],
+    }));
 
-    const totalPages = Math.ceil(total / limit)
+    const totalPages = Math.ceil(total / limit);
 
     return NextResponse.json({
       success: true,
@@ -86,21 +84,21 @@ export async function GET(request: NextRequest) {
         total,
         totalPages,
         hasNext: page < totalPages,
-        hasPrev: page > 1
+        hasPrev: page > 1,
       },
       settings: {
-        blogPostsPerPage: contentSettings.blogPostsPerPage
-      }
-    })
+        blogPostsPerPage: contentSettings.blogPostsPerPage,
+      },
+    });
   } catch (error) {
-    console.error('Blog posts fetch error:', error)
+    console.error("Blog posts fetch error:", error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
+      {
+        success: false,
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
-    )
+    );
   }
-} 
+}
