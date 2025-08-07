@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const { action, resource, metadata } = requestBody
 
     // Validate action type
-    if (!action || typeof action !== 'string' || !VALID_ACTIVITY_TYPES.includes(action)) {
+    if (!action || typeof action !== 'string' || !(VALID_ACTIVITY_TYPES as readonly string[]).includes(action)) {
       return NextResponse.json({ success: false, error: 'Invalid activity type' }, { status: 400 })
     }
 
