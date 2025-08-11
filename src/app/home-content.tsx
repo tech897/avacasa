@@ -105,50 +105,50 @@ export default function HomePageContent() {
     }
   };
 
-  // Mock data for locations with proper structure (matching actual database locations)
+  // Popular locations from database (diverse geographic spread)
   const mockLocations = [
     {
-      id: "assagao",
-      name: "Assagao",
+      id: "assagao-goa",
+      name: "Assagao, Goa",
       description:
-        "Premium Goa location with luxury villas and serene environment",
+        "Charming North Goa village known for scenic beauty, heritage structures, and popular dining spots with luxury villas",
       image:
         "https://images.unsplash.com/photo-1559827260-dc66d52bef19?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
     },
     {
-      id: "siolim",
-      name: "Siolim",
-      description: "Peaceful riverside location in North Goa",
-      image:
-        "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-    },
-    {
-      id: "mukteshwar",
-      name: "Mukteshwar",
-      description: "Himalayan hill station with breathtaking mountain views",
+      id: "mukteshwar-uk",
+      name: "Mukteshwar, UK",
+      description: "Fastest growing holiday home zone in Uttarakhand with scenic views and tourism-friendly environment",
       image:
         "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
     },
     {
-      id: "karjat",
-      name: "Karjat",
-      description: "Riverside plots for a relaxed lifestyle in Maharashtra",
+      id: "igatpuri-mh",
+      name: "Igatpuri, MH",
+      description: "Hill station in Western Ghats known for scenic beauty, cool climate, and proximity to Mumbai",
       image:
-        "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
     },
     {
-      id: "jaipur",
-      name: "Jaipur",
-      description: "Royal heritage and desert landscapes in Rajasthan",
+      id: "jaipur-rj",
+      name: "Jaipur, RJ",
+      description: "Vibrant real estate destination blending rich cultural heritage with modern urban development",
       image:
         "https://images.unsplash.com/photo-1477587458883-47145ed94245?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
     },
     {
-      id: "chikkamagaluru",
-      name: "Chikkamagaluru",
-      description: "Coffee country living amidst misty hills",
+      id: "chikkaballapura-ka",
+      name: "Chikkaballapura, KA",
+      description: "Emerging green-living destination near Bengaluru with clean air, hill views, and proximity to Kempegowda Airport",
       image:
         "https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+    },
+    {
+      id: "shimla-hp",
+      name: "Shimla, HP",
+      description: "Prominent hill station offering scenic beauty, colonial charm, and robust infrastructure in Himachal Pradesh",
+      image:
+        "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
     },
   ];
 
