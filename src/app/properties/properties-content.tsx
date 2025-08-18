@@ -232,15 +232,27 @@ export default function PropertiesPageContent() {
           searchParams.append("bounds", JSON.stringify(bounds));
         }
 
-        const response = await fetch(
-          `/api/properties?${searchParams.toString()}`
-        );
+        const url = `/api/properties?${searchParams.toString()}`;
+        console.log("🌐 Fetching from URL:", url);
+        
+        const response = await fetch(url);
+        console.log("📡 Response status:", response.status);
+        
         if (response.ok) {
           const result = await response.json();
+          console.log("✅ API Response:", {
+            success: result.success,
+            dataCount: result.data?.length || 0,
+            total: result.pagination?.total || 0,
+            pagination: result.pagination
+          });
           if (result.success) {
             setProperties(result.data);
             setPagination(result.pagination);
           }
+        } else {
+          const errorText = await response.text();
+          console.error("❌ Failed to fetch properties:", response.status, errorText);
         }
       } catch (error) {
         console.error("Error fetching properties:", error);
@@ -285,6 +297,12 @@ export default function PropertiesPageContent() {
   useEffect(() => {
     fetchProperties(); // Don't pass filters as parameter since fetchProperties already uses the current filters
   }, [fetchProperties]);
+
+  // Ensure properties are loaded on initial mount
+  useEffect(() => {
+    console.log("🔄 Initial properties load triggered");
+    fetchProperties();
+  }, []); // Run only once on mount
 
   const handleSearch = (query: string, searchFilters?: SearchFilters) => {
     // Convert string propertyType back to PropertyType enum if needed
