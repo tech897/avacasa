@@ -12,6 +12,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { formatCurrency } from "@/lib/utils";
 import type { Property } from "@/types/index";
+import { PropertyImage } from "@/components/ui/optimized-image";
 
 // Fix for default markers
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -337,18 +338,17 @@ export default function PropertyMap({
                   autoClose={false}
                 >
                   <div className="w-64 p-0">
-                    <div className="relative aspect-[4/3] mb-3 cursor-pointer group/image">
-                      <img
-                        src={
-                          property.images[0] ||
-                          `https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80`
-                        }
+                    <div
+                      className="relative aspect-[4/3] mb-3 cursor-pointer group/image overflow-hidden rounded-t-lg"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(`/properties/${property.slug}`, "_blank");
+                      }}
+                    >
+                      <PropertyImage
+                        images={property.images || []}
                         alt={property.title}
-                        className="w-full h-full object-cover rounded-t-lg transition-transform duration-300 group-hover/image:scale-105"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(`/properties/${property.slug}`, "_blank");
-                        }}
+                        className="transition-transform duration-300 group-hover/image:scale-105"
                       />
                       {/* Overlay with view details hint */}
                       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/image:opacity-100 transition-opacity duration-300 rounded-t-lg flex items-center justify-center">

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Heart, MapPin, Bed, Bath, Maximize, Share2 } from "lucide-react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -9,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { formatCurrency, getWhatsAppLink } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import type { Property } from "@/types";
+import { PropertyImage } from "@/components/ui/optimized-image";
 
 interface PropertyCardProps {
   property: Property;
@@ -137,16 +137,12 @@ export function PropertyCard({
     >
       <div className="relative">
         <Link href={`/properties/${property.slug}`}>
-          <div className="aspect-[4/3] overflow-hidden rounded-2xl">
-            <Image
-              src={
-                property.images[0] ||
-                "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
-              }
+          <div className="relative aspect-[4/3] overflow-hidden rounded-2xl">
+            <PropertyImage
+              images={property.images || []}
               alt={property.title}
-              width={400}
-              height={300}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+              className="group-hover:scale-105 transition-transform duration-500 ease-out"
+              priority={false}
             />
 
             {/* Light gradient overlay - just enough for text readability */}

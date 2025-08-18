@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { getContentSettings } from "@/lib/settings";
+import {
+  parseArray,
+  parseObject,
+  parseCoordinates,
+  parseNearbyInfrastructure,
+  safeJsonParse,
+} from "@/lib/utils/json";
+import {
+  paginatedResponse,
+  errorResponse,
+  handleApiError,
+} from "@/lib/utils/api-response";
 
 const querySchema = z.object({
   location: z.string().optional(),
@@ -130,130 +142,77 @@ export async function GET(request: NextRequest) {
       active: true,
     } as any;
 
-    // First get all properties that match other criteria
+    // Optimized query to only select needed fields for better performance
     const allProperties = await prisma.property.findMany({
       where,
-      include: { location: true },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        description: true,
+        price: true,
+        propertyType: true,
+        bedrooms: true,
+        bathrooms: true,
+        area: true,
+        floors: true,
+        images: true,
+        amenities: true,
+        features: true,
+        coordinates: true,
+        status: true,
+        featured: true,
+        active: true,
+        views: true,
+        createdAt: true,
+        updatedAt: true,
+        // Extended fields
+        unitConfiguration: true,
+        aboutProject: true,
+        legalApprovals: true,
+        registrationCosts: true,
+        propertyManagement: true,
+        financialReturns: true,
+        investmentBenefits: true,
+        nearbyInfrastructure: true,
+        plotSize: true,
+        constructionStatus: true,
+        emiOptions: true,
+        tags: true,
+        // Location with only needed fields
+        location: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            coordinates: true,
+          },
+        },
+      },
       orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
     });
 
-    // Parse JSON fields and filter by bounds if provided
+    // Parse JSON fields safely to prevent crashes
     const parsedProperties = allProperties.map((property) => {
-      let nearbyInfrastructure = null;
-
-      // Parse nearbyInfrastructure and convert strings to proper arrays
-      if (property.nearbyInfrastructure) {
-        try {
-          const parsed = JSON.parse(property.nearbyInfrastructure);
-          nearbyInfrastructure = {
-            educational: parsed.education
-              ? parsed.education
-                  .split(",")
-                  .filter((item: string) => item.trim())
-                  .map((item: string) => ({
-                    name: item.trim(),
-                    distance: "Contact for details",
-                  }))
-              : [],
-            healthcare: parsed.healthcare
-              ? parsed.healthcare
-                  .split(",")
-                  .filter((item: string) => item.trim())
-                  .map((item: string) => ({
-                    name: item.trim(),
-                    distance: "Contact for details",
-                  }))
-              : [],
-            shopping: parsed.shopping
-              ? parsed.shopping
-                  .split(",")
-                  .filter((item: string) => item.trim())
-                  .map((item: string) => ({
-                    name: item.trim(),
-                    distance: "Contact for details",
-                  }))
-              : [],
-            transportation: parsed.transport
-              ? [
-                  ...(parsed.transport.airport
-                    ? [
-                        {
-                          name: `Airport: ${parsed.transport.airport}`,
-                          distance: "Contact for details",
-                        },
-                      ]
-                    : []),
-                  ...(parsed.transport.bus
-                    ? [
-                        {
-                          name: `Bus: ${parsed.transport.bus}`,
-                          distance: "Contact for details",
-                        },
-                      ]
-                    : []),
-                  ...(parsed.transport.train
-                    ? [
-                        {
-                          name: `Train: ${parsed.transport.train}`,
-                          distance: "Contact for details",
-                        },
-                      ]
-                    : []),
-                  ...(parsed.transport.highway
-                    ? [
-                        {
-                          name: `Highway: ${parsed.transport.highway}`,
-                          distance: "Contact for details",
-                        },
-                      ]
-                    : []),
-                ]
-              : [],
-            attractions: parsed.attractions || [],
-          };
-        } catch (e) {
-          nearbyInfrastructure = {
-            educational: [],
-            healthcare: [],
-            shopping: [],
-            transportation: [],
-            attractions: [],
-          };
-        }
-      }
-
       return {
         ...property,
-        images: JSON.parse(property.images || "[]"),
-        amenities: JSON.parse(property.amenities || "[]"),
-        features: JSON.parse(property.features || "[]"),
-        coordinates: property.coordinates
-          ? JSON.parse(property.coordinates)
-          : null,
-        nearbyInfrastructure,
-        // Parse other JSON fields
-        unitConfiguration: property.unitConfiguration
-          ? JSON.parse(property.unitConfiguration)
-          : null,
-        legalApprovals: property.legalApprovals
-          ? JSON.parse(property.legalApprovals)
-          : [],
-        registrationCosts: property.registrationCosts
-          ? JSON.parse(property.registrationCosts)
-          : null,
-        propertyManagement: property.propertyManagement
-          ? JSON.parse(property.propertyManagement)
-          : null,
-        financialReturns: property.financialReturns
-          ? JSON.parse(property.financialReturns)
-          : null,
-        investmentBenefits: property.investmentBenefits
-          ? JSON.parse(property.investmentBenefits)
-          : [],
-        emiOptions: property.emiOptions
-          ? JSON.parse(property.emiOptions)
-          : null,
-        tags: property.tags ? JSON.parse(property.tags) : [],
+        // Safe parsing for all JSON fields
+        images: parseArray(property.images),
+        amenities: parseArray(property.amenities),
+        features: parseArray(property.features),
+        coordinates: parseCoordinates(property.coordinates),
+        nearbyInfrastructure: parseNearbyInfrastructure(
+          property.nearbyInfrastructure
+        ),
+        unitConfiguration: parseObject(property.unitConfiguration),
+        legalApprovals: parseObject(property.legalApprovals),
+        registrationCosts: parseObject(property.registrationCosts),
+        investmentBenefits: parseArray(property.investmentBenefits),
+        tags: parseArray(property.tags),
+        // Keep text fields as strings (don't parse as JSON)
+        propertyManagement: property.propertyManagement || "",
+        financialReturns: property.financialReturns || "",
+        emiOptions: property.emiOptions || "",
       };
     });
 
@@ -409,34 +368,32 @@ export async function GET(request: NextRequest) {
       query.page * effectiveLimit
     );
 
-    return NextResponse.json({
-      success: true,
-      data: paginatedProperties,
-      pagination: {
-        page: query.page,
-        limit: effectiveLimit,
-        total,
-        pages: Math.ceil(total / effectiveLimit),
-      },
-      settings:
-        query.featured === true
-          ? {
-              featuredPropertiesLimit: contentSettings.featuredPropertiesLimit,
-            }
-          : undefined,
-      // Include bounds information for map synchronization
-      bounds: boundsFilter,
-      totalBeforeBounds: parsedProperties.length, // Total before bounds filtering
-    });
-  } catch (error) {
-    console.error("Error fetching properties:", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to fetch properties",
-        message: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
+      paginatedResponse(
+        paginatedProperties,
+        {
+          page: query.page,
+          limit: effectiveLimit,
+          total,
+        },
+        {
+          settings:
+            query.featured === true
+              ? {
+                  featuredPropertiesLimit:
+                    contentSettings.featuredPropertiesLimit,
+                }
+              : undefined,
+          bounds: boundsFilter,
+          totalBeforeBounds: parsedProperties.length,
+        }
+      )
+    );
+  } catch (error) {
+    const { message, status } = handleApiError(error);
+    return NextResponse.json(
+      errorResponse("Failed to fetch properties", message),
+      { status }
     );
   }
 }

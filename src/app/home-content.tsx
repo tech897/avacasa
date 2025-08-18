@@ -118,35 +118,40 @@ export default function HomePageContent() {
     {
       id: "mukteshwar-uk",
       name: "Mukteshwar, UK",
-      description: "Fastest growing holiday home zone in Uttarakhand with scenic views and tourism-friendly environment",
+      description:
+        "Fastest growing holiday home zone in Uttarakhand with scenic views and tourism-friendly environment",
       image:
         "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
     },
     {
       id: "igatpuri-mh",
       name: "Igatpuri, MH",
-      description: "Hill station in Western Ghats known for scenic beauty, cool climate, and proximity to Mumbai",
+      description:
+        "Hill station in Western Ghats known for scenic beauty, cool climate, and proximity to Mumbai",
       image:
         "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
     },
     {
       id: "jaipur-rj",
       name: "Jaipur, RJ",
-      description: "Vibrant real estate destination blending rich cultural heritage with modern urban development",
+      description:
+        "Vibrant real estate destination blending rich cultural heritage with modern urban development",
       image:
         "https://images.unsplash.com/photo-1477587458883-47145ed94245?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
     },
     {
       id: "chikkaballapura-ka",
       name: "Chikkaballapura, KA",
-      description: "Emerging green-living destination near Bengaluru with clean air, hill views, and proximity to Kempegowda Airport",
+      description:
+        "Emerging green-living destination near Bengaluru with clean air, hill views, and proximity to Kempegowda Airport",
       image:
         "https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
     },
     {
       id: "shimla-hp",
       name: "Shimla, HP",
-      description: "Prominent hill station offering scenic beauty, colonial charm, and robust infrastructure in Himachal Pradesh",
+      description:
+        "Prominent hill station offering scenic beauty, colonial charm, and robust infrastructure in Himachal Pradesh",
       image:
         "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
     },

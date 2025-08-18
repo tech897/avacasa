@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PropertyCard } from "@/components/property/property-card";
+import { PropertyImage } from "@/components/ui/optimized-image";
 import {
   Heart,
   Share2,
@@ -424,10 +425,10 @@ export function RelatedProperties({
             <div className="relative">
               {/* Property Image */}
               <div className="relative aspect-[4/3] overflow-hidden">
-                <img
-                  src={property.images[0]}
+                <PropertyImage
+                  images={property.images || []}
                   alt={property.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="group-hover:scale-105 transition-transform duration-300"
                 />
 
                 {/* Property Type & Featured Badges */}

@@ -1,18 +1,19 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import { parseArray } from "@/lib/utils/json";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const { slug } = await params
-    
+    const { slug } = await params;
+
     const post = await prisma.blogPost.findUnique({
-      where: { 
+      where: {
         slug: slug,
-        status: 'PUBLISHED',
-        active: true
+        status: "PUBLISHED",
+        active: true,
       },
       select: {
         id: true,
@@ -27,32 +28,32 @@ export async function GET(
         featured: true,
         views: true,
         publishedAt: true,
-        createdAt: true
-      }
-    })
+        createdAt: true,
+      },
+    });
 
     if (!post) {
       return NextResponse.json(
-        { success: false, error: 'Post not found' },
+        { success: false, error: "Post not found" },
         { status: 404 }
-      )
+      );
     }
 
-    // Parse tags
+    // Parse tags safely
     const parsedPost = {
       ...post,
-      tags: post.tags ? JSON.parse(post.tags) : []
-    }
+      tags: parseArray(post.tags),
+    };
 
     // Get related posts (same category, excluding current post)
     const relatedPosts = await prisma.blogPost.findMany({
       where: {
         category: post.category,
         slug: { not: slug },
-        status: 'PUBLISHED',
-        active: true
+        status: "PUBLISHED",
+        active: true,
       },
-      orderBy: { publishedAt: 'desc' },
+      orderBy: { publishedAt: "desc" },
       take: 3,
       select: {
         id: true,
@@ -62,25 +63,25 @@ export async function GET(
         author: true,
         category: true,
         featuredImage: true,
-        publishedAt: true
-      }
-    })
+        publishedAt: true,
+      },
+    });
 
     return NextResponse.json({
       success: true,
       data: parsedPost,
-      relatedPosts
-    })
+      relatedPosts,
+    });
   } catch (error) {
-    console.error('Blog post fetch error:', error)
+    console.error("Blog post fetch error:", error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
+      {
+        success: false,
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
-    )
+    );
   }
 }
 
@@ -89,37 +90,37 @@ export async function POST(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   try {
-    const { slug } = await params
-    
+    const { slug } = await params;
+
     // Increment view count
     const post = await prisma.blogPost.update({
-      where: { 
+      where: {
         slug: slug,
-        status: 'PUBLISHED',
-        active: true
+        status: "PUBLISHED",
+        active: true,
       },
       data: {
-        views: { increment: 1 }
+        views: { increment: 1 },
       },
       select: {
-        views: true
-      }
-    })
+        views: true,
+      },
+    });
 
     return NextResponse.json({
       success: true,
       views: post.views,
-      message: 'View tracked successfully'
-    })
+      message: "View tracked successfully",
+    });
   } catch (error) {
-    console.error('Blog post update error:', error)
+    console.error("Blog post update error:", error);
     return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
+      {
+        success: false,
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : "Unknown error",
       },
       { status: 500 }
-    )
+    );
   }
-} 
+}

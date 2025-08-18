@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getContentSettings } from "@/lib/settings";
+import { parseArray } from "@/lib/utils/json";
 
 export async function GET(request: NextRequest) {
   try {
@@ -67,10 +68,10 @@ export async function GET(request: NextRequest) {
       prisma.blogPost.count({ where }),
     ]);
 
-    // Parse tags for each post
+    // Parse tags for each post safely
     const parsedPosts = posts.map((post) => ({
       ...post,
-      tags: post.tags ? JSON.parse(post.tags) : [],
+      tags: parseArray(post.tags),
     }));
 
     const totalPages = Math.ceil(total / limit);
