@@ -6,7 +6,8 @@ import { prisma } from "./db";
 const ALLOWED_ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@example.com";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: PrismaAdapter(prisma) as any,
+  // Remove adapter temporarily to fix build error
+  // adapter: PrismaAdapter(prisma),
   providers: [
     // Temporarily commented out Google provider
     // GoogleProvider({
@@ -82,7 +83,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
 // For backward compatibility, also export the config
 export const authOptions = {
-  adapter: PrismaAdapter(prisma) as any,
+  // adapter: PrismaAdapter(prisma),
   providers: [],
   callbacks: {},
   pages: {
