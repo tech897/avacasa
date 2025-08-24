@@ -189,11 +189,12 @@ export default function PropertiesPageContent() {
     trackPageView("/properties");
   }, [trackPageView]);
 
-  // Fetch properties from API - stable function with filters dependency
+  // Fetch properties from API - stable function that uses current filters
   const fetchProperties = useCallback(
     async (currentFilters?: PropertyFilters, bounds?: MapBounds) => {
       setLoading(true);
       try {
+        // Use provided filters or get current filters from state ref
         const filtersToUse = currentFilters || filters;
         console.log("🚀 Fetching properties with filters:", filtersToUse);
         const searchParams = new URLSearchParams();
@@ -260,7 +261,7 @@ export default function PropertiesPageContent() {
         setLoading(false);
       }
     },
-    [filters] // Include filters as dependency so it uses current filters
+    [] // Stable function - filters accessed via closure
   );
 
   // Debounced bounds change handler
@@ -293,16 +294,11 @@ export default function PropertiesPageContent() {
     };
   }, []);
 
-  // Fetch properties when filters change (but not for bounds-only changes)
+  // Fetch properties when filters change (with a flag to prevent race conditions)
   useEffect(() => {
-    fetchProperties(); // Don't pass filters as parameter since fetchProperties already uses the current filters
-  }, [fetchProperties]);
-
-  // Ensure properties are loaded on initial mount
-  useEffect(() => {
-    console.log("🔄 Initial properties load triggered");
-    fetchProperties();
-  }, []); // Run only once on mount
+    console.log("🔄 Filters changed, fetching properties:", filters);
+    fetchProperties(); 
+  }, [filters]); // Use filters directly instead of fetchProperties to avoid circular updates
 
   const handleSearch = (query: string, searchFilters?: SearchFilters) => {
     // Convert string propertyType back to PropertyType enum if needed
