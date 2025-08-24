@@ -268,6 +268,14 @@ export function OptimizedSearch({
   // Handle search submission
   const handleSearch = (searchQuery?: string, propertyTypeFilter?: string) => {
     const searchTerm = searchQuery || query;
+    console.log("🔍 OptimizedSearch handleSearch called:", {
+      searchTerm,
+      query,
+      isNaturalLanguage,
+      parsedQuery,
+      onSearch: !!onSearch
+    });
+    
     if (!searchTerm.trim()) return;
 
     // If we have a parsed natural language query, use its parameters
@@ -288,7 +296,14 @@ export function OptimizedSearch({
         const keywordSearch = parsedQuery.keywords.join(" ");
         if (keywordSearch.toLowerCase() !== searchTerm.toLowerCase()) {
           params.set("search", keywordSearch);
+          console.log("🔍 Natural language: Using keywords as search:", keywordSearch);
+        } else {
+          console.log("🔍 Natural language: Keywords same as search term, not setting search param");
         }
+      } else {
+        // If no keywords, use the original search term
+        params.set("search", searchTerm);
+        console.log("🔍 Natural language: No keywords, using original search term:", searchTerm);
       }
 
       if (onSearch) {
@@ -308,10 +323,12 @@ export function OptimizedSearch({
           isNaturalLanguage: true,
         });
       } else {
+        console.log("🔍 Natural language route - navigating to:", `/properties?${params.toString()}`);
         router.push(`/properties?${params.toString()}`);
       }
     } else {
       // Fallback to regular search
+      console.log("🔍 Regular search route");
       const params = new URLSearchParams();
       params.set("search", searchTerm);
 
@@ -321,11 +338,15 @@ export function OptimizedSearch({
         params.set("propertyType", selectedPropertyType);
       }
 
+      console.log("🔍 Regular search params:", params.toString());
+
       if (onSearch) {
+        console.log("🔍 Using onSearch callback");
         onSearch(searchTerm, {
           propertyType: propertyTypeFilter || selectedPropertyType,
         });
       } else {
+        console.log("🔍 Regular search - navigating to:", `/properties?${params.toString()}`);
         router.push(`/properties?${params.toString()}`);
       }
     }

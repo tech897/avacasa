@@ -25,9 +25,8 @@ const querySchema = z.object({
   limit: z.coerce.number().default(50),
   featured: z.coerce.boolean().optional(),
   search: z.string().optional(),
-  viewType: z.string().optional(), // Filter by view type/feature
-  // Map bounds filtering
-  bounds: z.string().optional(), // JSON string with {north, south, east, west}
+  viewType: z.string().optional(),
+  bounds: z.string().optional(),
 });
 
 // Helper function to check if coordinates are within bounds
@@ -41,25 +40,12 @@ function isWithinBounds(coordinates: any, bounds: any): boolean {
   return lat >= south && lat <= north && lng >= west && lng <= east;
 }
 
-// --- New helpers ---
-function toRad(deg: number) {
-  return (deg * Math.PI) / 180;
-}
-function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371; // km
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const query = querySchema.parse(Object.fromEntries(searchParams));
+
+    console.log("🔍 API Request - Query params:", query);
 
     // Parse bounds if provided
     let boundsFilter = null;
@@ -83,66 +69,83 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Handle location search - support both location ID and location name
-    let locationFilter = {};
-    let enhancedSearch = query.search;
+    // Build the where clause step by step
+    const where: any = {
+      status: "AVAILABLE",
+      active: true,
+    };
 
-    // --- Collect center coordinates if location query present ---
-    let centerCoords: { lat: number; lng: number } | null = null;
-    if (query.location) {
-      try {
-        const loc = await prisma.location.findFirst({
-          where: {
-            OR: [
-              { name: { equals: query.location } },
-              {
-                slug: {
-                  equals: query.location.toLowerCase().replace(/\s+/g, "-"),
-                },
-              },
-              { name: { contains: query.location } },
-            ],
-            active: true,
-          },
-        });
-        if (loc) {
-          try {
-            centerCoords = JSON.parse(loc.coordinates);
-          } catch (_) {
-            centerCoords = null;
-          }
-        }
-      } catch (e) {
-        centerCoords = null;
+    // Add property type filter
+    if (query.propertyType) {
+      where.propertyType = query.propertyType;
+    }
+
+    // Add bedrooms filter
+    if (query.bedrooms) {
+      where.bedrooms = { gte: query.bedrooms };
+    }
+
+    // Add featured filter
+    if (query.featured !== undefined) {
+      where.featured = query.featured;
+    }
+
+    // Add price range filters
+    if (query.minPrice || query.maxPrice) {
+      where.price = {};
+      if (query.minPrice) {
+        where.price.gte = query.minPrice.toString();
+      }
+      if (query.maxPrice) {
+        where.price.lte = query.maxPrice.toString();
       }
     }
 
-    // Instead of strict locationId match, we prefer name contains so that nearby areas also appear.
-    if (query.location) {
-      locationFilter = {
-        location: {
-          name: { contains: query.location },
-        },
+    // Enhanced search functionality
+    if (query.search) {
+      const searchTerm = query.search.trim();
+      console.log("🔍 Searching for:", searchTerm);
+
+      // Comprehensive search across multiple fields
+      where.OR = [
+        // Search in title (case insensitive)
+        { title: { contains: searchTerm, mode: "insensitive" } },
+        // Search in description (case insensitive)
+        { description: { contains: searchTerm, mode: "insensitive" } },
+        // Search in location name
+        { location: { name: { contains: searchTerm, mode: "insensitive" } } },
+        // Search in property type (convert to match enum)
+        ...(searchTerm.toLowerCase().includes("villa")
+          ? [{ propertyType: "VILLA" }]
+          : []),
+        ...(searchTerm.toLowerCase().includes("apartment")
+          ? [{ propertyType: "APARTMENT" }]
+          : []),
+        ...(searchTerm.toLowerCase().includes("farmland")
+          ? [{ propertyType: "FARMLAND" }]
+          : []),
+        ...(searchTerm.toLowerCase().includes("plot")
+          ? [{ propertyType: "PLOT" }]
+          : []),
+        ...(searchTerm.toLowerCase().includes("holiday")
+          ? [{ propertyType: "HOLIDAY_HOME" }]
+          : []),
+        ...(searchTerm.toLowerCase().includes("residential")
+          ? [{ propertyType: "RESIDENTIAL_PLOT" }]
+          : []),
+      ];
+    }
+
+    // Add location filter (separate from search)
+    if (query.location && !query.search) {
+      where.location = {
+        name: { contains: query.location, mode: "insensitive" },
       };
     }
 
-    const where = {
-      ...locationFilter,
-      ...(query.propertyType && { propertyType: query.propertyType }),
-      ...(query.bedrooms && { bedrooms: { gte: query.bedrooms } }),
-      ...(query.featured !== undefined && { featured: query.featured }),
-      ...(enhancedSearch && {
-        OR: [
-          { title: { contains: enhancedSearch } },
-          { description: { contains: enhancedSearch } },
-          { location: { name: { contains: enhancedSearch } } },
-        ],
-      }),
-      status: "AVAILABLE" as const,
-      active: true,
-    } as any;
+    console.log("🔍 Final where clause:", JSON.stringify(where, null, 2));
 
-    // Optimized query to only select needed fields for better performance
+    // Fetch properties with detailed error handling
     const allProperties = await prisma.property.findMany({
       where,
       select: {
@@ -192,208 +195,92 @@ export async function GET(request: NextRequest) {
       orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
     });
 
+    console.log(`🔍 Found ${allProperties.length} properties before parsing`);
+
     // Parse JSON fields safely to prevent crashes
     const parsedProperties = allProperties.map((property) => {
-      return {
-        ...property,
-        // Safe parsing for all JSON fields
-        images: parseArray(property.images),
-        amenities: parseArray(property.amenities),
-        features: parseArray(property.features),
-        coordinates: parseCoordinates(property.coordinates),
-        nearbyInfrastructure: parseNearbyInfrastructure(
-          property.nearbyInfrastructure
-        ),
-        unitConfiguration: parseObject(property.unitConfiguration),
-        legalApprovals: parseObject(property.legalApprovals),
-        registrationCosts: parseObject(property.registrationCosts),
-        investmentBenefits: parseArray(property.investmentBenefits),
-        tags: parseArray(property.tags),
-        // Keep text fields as strings (don't parse as JSON)
-        propertyManagement: property.propertyManagement || "",
-        financialReturns: property.financialReturns || "",
-        emiOptions: property.emiOptions || "",
-      };
+      try {
+        return {
+          ...property,
+          price: parseFloat(property.price) || 0,
+          images: parseArray(property.images),
+          amenities: parseArray(property.amenities),
+          features: parseArray(property.features),
+          coordinates: parseCoordinates(property.coordinates),
+          nearbyInfrastructure: parseNearbyInfrastructure(
+            property.nearbyInfrastructure
+          ),
+          unitConfiguration: parseObject(property.unitConfiguration),
+          legalApprovals: parseObject(property.legalApprovals),
+          registrationCosts: parseObject(property.registrationCosts),
+          investmentBenefits: parseArray(property.investmentBenefits),
+          tags: parseArray(property.tags),
+          // Keep text fields as strings
+          propertyManagement: property.propertyManagement || "",
+          financialReturns: property.financialReturns || "",
+          emiOptions: property.emiOptions || "",
+        };
+      } catch (parseError) {
+        console.error(`Error parsing property ${property.id}:`, parseError);
+        // Return the property with basic fields only if parsing fails
+        return {
+          ...property,
+          price: parseFloat(property.price) || 0,
+          images: [],
+          amenities: [],
+          features: [],
+          coordinates: null,
+          nearbyInfrastructure: {},
+          unitConfiguration: {},
+          legalApprovals: {},
+          registrationCosts: {},
+          investmentBenefits: [],
+          tags: [],
+          propertyManagement: "",
+          financialReturns: "",
+          emiOptions: "",
+        };
+      }
     });
 
-    // Apply price filtering (handle both string and number prices)
-    let priceFilteredProperties = parsedProperties;
-    if (query.minPrice || query.maxPrice) {
-      priceFilteredProperties = parsedProperties.filter((property) => {
-        // Convert price to number for comparison (handle both string and number)
-        let priceNum = 0;
-        try {
-          if (typeof property.price === "number") {
-            priceNum = property.price;
-          } else if (typeof property.price === "string") {
-            priceNum = parseFloat(property.price.replace(/[^0-9.]/g, "")) || 0;
-          }
-        } catch (error) {
-          priceNum = 0;
-        }
-
-        let passesFilter = true;
-
-        if (query.minPrice && priceNum < query.minPrice) {
-          passesFilter = false;
-        }
-
-        if (query.maxPrice && priceNum > query.maxPrice) {
-          passesFilter = false;
-        }
-
-        return passesFilter;
-      });
-    }
-
-    // Filter by viewType if provided
-    let viewTypeFilteredProperties = priceFilteredProperties;
-    if (query.viewType) {
-      viewTypeFilteredProperties = priceFilteredProperties.filter(
-        (property) => {
-          // Check if the property has features that match the requested viewType
-          const features = property.features || [];
-          const searchTerm = query.viewType!.toLowerCase();
-
-          return features.some((feature: any) => {
-            if (!feature.name) return false;
-
-            const featureName = feature.name.toLowerCase();
-
-            // Exact or close matches for common view types
-            if (searchTerm === "lake view") {
-              return (
-                (featureName.includes("lake") &&
-                  featureName.includes("view")) ||
-                featureName.includes("lakeside") ||
-                featureName.includes("lake views")
-              );
-            }
-            if (searchTerm === "forest view") {
-              return (
-                (featureName.includes("forest") &&
-                  featureName.includes("view")) ||
-                featureName.includes("forest views") ||
-                featureName === "forest" ||
-                featureName.includes("forest edge")
-              );
-            }
-            if (searchTerm === "hill view") {
-              return (
-                (featureName.includes("hill") &&
-                  featureName.includes("view")) ||
-                featureName.includes("hill views") ||
-                featureName === "hill" ||
-                featureName === "hills" ||
-                featureName.includes("hills")
-              );
-            }
-            if (searchTerm === "farm view") {
-              return (
-                (featureName.includes("farm") &&
-                  featureName.includes("view")) ||
-                featureName.includes("farm views") ||
-                featureName.includes("farmland view") ||
-                featureName.includes("farmland")
-              );
-            }
-            if (searchTerm === "sea view") {
-              return (
-                (featureName.includes("sea") && featureName.includes("view")) ||
-                featureName.includes("sea views") ||
-                featureName.includes("beach view") ||
-                featureName.includes("beach")
-              );
-            }
-            if (searchTerm === "pool view") {
-              return (
-                (featureName.includes("pool") &&
-                  featureName.includes("view")) ||
-                featureName.includes("pool views") ||
-                featureName.includes("poolside")
-              );
-            }
-
-            // Fallback to general containment check
-            return featureName.includes(searchTerm);
-          });
-        }
+    // Apply bounds filtering in JavaScript if needed
+    let filteredProperties = parsedProperties;
+    if (boundsFilter) {
+      filteredProperties = parsedProperties.filter((property) =>
+        isWithinBounds(property.coordinates, boundsFilter)
       );
     }
 
-    // Filter by map bounds if provided
-    const boundsFilteredProperties = boundsFilter
-      ? viewTypeFilteredProperties.filter((property) =>
-          isWithinBounds(property.coordinates, boundsFilter)
-        )
-      : viewTypeFilteredProperties;
+    // Calculate pagination
+    const total = filteredProperties.length;
+    const pages = Math.ceil(total / effectiveLimit);
+    const startIndex = (query.page - 1) * effectiveLimit;
+    const endIndex = startIndex + effectiveLimit;
+    const paginatedProperties = filteredProperties.slice(startIndex, endIndex);
 
-    // After boundsFilteredProperties is calculated, insert distance sorting
-    let distanceSortedProperties = boundsFilteredProperties;
-    if (centerCoords) {
-      distanceSortedProperties = boundsFilteredProperties
-        .map((p) => {
-          let distance: number | null = null;
-          try {
-            const coords = p.coordinates;
-            if (
-              coords &&
-              typeof coords.lat === "number" &&
-              typeof coords.lng === "number"
-            ) {
-              distance = haversine(
-                centerCoords!.lat,
-                centerCoords!.lng,
-                coords.lat,
-                coords.lng
-              );
-            }
-          } catch (_) {
-            distance = null;
-          }
-          return { ...p, distance };
-        })
-        .sort((a, b) => {
-          if (a.distance === null && b.distance === null) return 0;
-          if (a.distance === null) return 1;
-          if (b.distance === null) return -1;
-          return a.distance! - b.distance!;
-        });
-    }
-
-    // Apply pagination on distance-sorted list
-    const total = distanceSortedProperties.length;
-    const paginatedProperties = distanceSortedProperties.slice(
-      (query.page - 1) * effectiveLimit,
-      query.page * effectiveLimit
+    console.log(
+      `🔍 Returning ${paginatedProperties.length} properties (page ${query.page}/${pages})`
     );
 
-    return NextResponse.json(
-      paginatedResponse(
-        paginatedProperties,
-        {
-          page: query.page,
-          limit: effectiveLimit,
-          total,
-        },
-        {
-          settings:
-            query.featured === true
-              ? {
-                  featuredPropertiesLimit:
-                    contentSettings.featuredPropertiesLimit,
-                }
-              : undefined,
-          bounds: boundsFilter,
-          totalBeforeBounds: parsedProperties.length,
-        }
-      )
-    );
+    return NextResponse.json({
+      success: true,
+      data: paginatedProperties,
+      pagination: {
+        page: query.page,
+        limit: effectiveLimit,
+        total,
+        pages,
+      },
+    });
   } catch (error) {
-    const { message, status } = handleApiError(error);
+    console.error("Properties API error:", error);
     return NextResponse.json(
-      errorResponse("Failed to fetch properties", message),
-      { status }
+      {
+        success: false,
+        error: "Failed to fetch properties",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
     );
   }
 }

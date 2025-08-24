@@ -70,6 +70,9 @@ export default function PropertiesPageContent() {
   );
   const [mapBounds, setMapBounds] = useState<MapBounds | null>(null);
   const boundsUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialLoad = useRef(true);
+
+  // Simplified filters state
   const [filters, setFilters] = useState<PropertyFilters>({
     page: 1,
     limit: 50,
@@ -80,18 +83,17 @@ export default function PropertiesPageContent() {
   const pathname = usePathname();
   const { trackPageView, trackSearch } = useTracking();
 
-  // Parse URL parameters and set initial filters
+  // Parse URL parameters once and set filters
   useEffect(() => {
     const urlFilters: PropertyFilters = {
       page: 1,
       limit: 50,
     };
 
-    // Handle property type parameter (both 'type' and 'propertyType')
+    // Handle property type parameter
     const typeParam =
       searchParams.get("type") || searchParams.get("propertyType");
     if (typeParam) {
-      // Convert URL-friendly names to PropertyType enum values
       const typeMapping: Record<string, PropertyType> = {
         villa: PropertyType.VILLA,
         villas: PropertyType.VILLA,
@@ -108,7 +110,6 @@ export default function PropertiesPageContent() {
         apartment: PropertyType.APARTMENT,
         apartments: PropertyType.APARTMENT,
       };
-
       const propertyType = typeMapping[typeParam.toLowerCase()];
       if (propertyType) {
         urlFilters.propertyType = propertyType;
@@ -129,7 +130,7 @@ export default function PropertiesPageContent() {
       urlFilters.featured = false;
     }
 
-    // Handle location parameter (for natural language search)
+    // Handle location parameter
     const locationParam = searchParams.get("location");
     if (locationParam) {
       urlFilters.location = locationParam;
@@ -161,12 +162,6 @@ export default function PropertiesPageContent() {
       }
     }
 
-    // Handle viewType parameter
-    const viewTypeParam = searchParams.get("viewType");
-    if (viewTypeParam) {
-      urlFilters.viewType = viewTypeParam;
-    }
-
     // Handle page parameter
     const pageParam = searchParams.get("page");
     if (pageParam) {
@@ -177,10 +172,11 @@ export default function PropertiesPageContent() {
     }
 
     console.log(
-      "🔍 URL Search Params:",
+      "🔍 URL params parsed:",
       Object.fromEntries(searchParams.entries())
     );
-    console.log("🎯 Parsed Filters:", urlFilters);
+    console.log("🎯 Setting filters:", urlFilters);
+
     setFilters(urlFilters);
   }, [searchParams]);
 
@@ -189,40 +185,46 @@ export default function PropertiesPageContent() {
     trackPageView("/properties");
   }, [trackPageView]);
 
-  // Fetch properties from API - stable function that uses current filters
+  // Single function to fetch properties
   const fetchProperties = useCallback(
-    async (currentFilters?: PropertyFilters, bounds?: MapBounds) => {
+    async (currentFilters: PropertyFilters, bounds?: MapBounds) => {
       setLoading(true);
+      console.log("🚀 Fetching properties with filters:", currentFilters);
+
       try {
-        // Use provided filters or get current filters from state ref
-        const filtersToUse = currentFilters || filters;
-        console.log("🚀 Fetching properties with filters:", filtersToUse);
-        const searchParams = new URLSearchParams();
+        const params = new URLSearchParams();
 
-        if (filtersToUse.search)
-          searchParams.append("search", filtersToUse.search);
-        if (filtersToUse.propertyType)
-          searchParams.append("propertyType", filtersToUse.propertyType);
-        if (filtersToUse.featured !== undefined)
-          searchParams.append("featured", filtersToUse.featured.toString());
-        if (filtersToUse.page)
-          searchParams.append("page", filtersToUse.page.toString());
-        if (filtersToUse.limit)
-          searchParams.append("limit", filtersToUse.limit.toString());
+        // Add all filter parameters
+        if (currentFilters.search) {
+          params.append("search", currentFilters.search);
+          console.log("🔍 Added search param:", currentFilters.search);
+        }
+        if (currentFilters.propertyType) {
+          params.append("propertyType", currentFilters.propertyType);
+        }
+        if (currentFilters.featured !== undefined) {
+          params.append("featured", currentFilters.featured.toString());
+        }
+        if (currentFilters.location) {
+          params.append("location", currentFilters.location);
+        }
+        if (currentFilters.bedrooms) {
+          params.append("bedrooms", currentFilters.bedrooms.toString());
+        }
+        if (currentFilters.minPrice) {
+          params.append("minPrice", currentFilters.minPrice.toString());
+        }
+        if (currentFilters.maxPrice) {
+          params.append("maxPrice", currentFilters.maxPrice.toString());
+        }
+        if (currentFilters.page) {
+          params.append("page", currentFilters.page.toString());
+        }
+        if (currentFilters.limit) {
+          params.append("limit", currentFilters.limit.toString());
+        }
 
-        // Add natural language search parameters
-        if (filtersToUse.location)
-          searchParams.append("location", filtersToUse.location);
-        if (filtersToUse.bedrooms)
-          searchParams.append("bedrooms", filtersToUse.bedrooms.toString());
-        if (filtersToUse.minPrice)
-          searchParams.append("minPrice", filtersToUse.minPrice.toString());
-        if (filtersToUse.maxPrice)
-          searchParams.append("maxPrice", filtersToUse.maxPrice.toString());
-        if (filtersToUse.viewType)
-          searchParams.append("viewType", filtersToUse.viewType);
-
-        // Only add bounds filtering if bounds are explicitly provided and valid
+        // Add bounds if provided
         if (
           bounds &&
           bounds.north &&
@@ -230,78 +232,80 @@ export default function PropertiesPageContent() {
           bounds.east &&
           bounds.west
         ) {
-          searchParams.append("bounds", JSON.stringify(bounds));
+          params.append("bounds", JSON.stringify(bounds));
         }
 
-        const url = `/api/properties?${searchParams.toString()}`;
-        console.log("🌐 Fetching from URL:", url);
-        
+        const url = `/api/properties?${params.toString()}`;
+        console.log("🌐 Fetching from:", url);
+
         const response = await fetch(url);
         console.log("📡 Response status:", response.status);
-        
+
         if (response.ok) {
           const result = await response.json();
           console.log("✅ API Response:", {
             success: result.success,
             dataCount: result.data?.length || 0,
             total: result.pagination?.total || 0,
-            pagination: result.pagination
           });
+
           if (result.success) {
             setProperties(result.data);
             setPagination(result.pagination);
+          } else {
+            console.error("❌ API returned success=false:", result);
+            setProperties([]);
+            setPagination(null);
           }
         } else {
           const errorText = await response.text();
-          console.error("❌ Failed to fetch properties:", response.status, errorText);
+          console.error("❌ API request failed:", response.status, errorText);
+          setProperties([]);
+          setPagination(null);
         }
       } catch (error) {
-        console.error("Error fetching properties:", error);
+        console.error("❌ Fetch error:", error);
+        setProperties([]);
+        setPagination(null);
       } finally {
         setLoading(false);
       }
     },
-    [] // Stable function - filters accessed via closure
+    []
   );
+
+  // Fetch properties when filters change
+  useEffect(() => {
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+    }
+    console.log("🔄 Filters changed, fetching properties");
+    fetchProperties(filters);
+  }, [filters, fetchProperties]);
 
   // Debounced bounds change handler
   const handleBoundsChange = useCallback(
     (bounds: MapBounds) => {
       setMapBounds(bounds);
 
-      // Clear existing timeout
       if (boundsUpdateTimeoutRef.current) {
         clearTimeout(boundsUpdateTimeoutRef.current);
       }
 
-      // Set new timeout to update properties after user stops moving map
       boundsUpdateTimeoutRef.current = setTimeout(() => {
         if (mapView) {
-          // Trigger property fetch with new bounds
           fetchProperties(filters, bounds);
         }
-      }, 500); // 500ms delay
+      }, 500);
     },
-    [mapView, fetchProperties]
+    [mapView, filters, fetchProperties]
   );
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (boundsUpdateTimeoutRef.current) {
-        clearTimeout(boundsUpdateTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Fetch properties when filters change (with a flag to prevent race conditions)
-  useEffect(() => {
-    console.log("🔄 Filters changed, fetching properties:", filters);
-    fetchProperties(); 
-  }, [filters]); // Use filters directly instead of fetchProperties to avoid circular updates
-
+  // Handle search from search component
   const handleSearch = (query: string, searchFilters?: SearchFilters) => {
-    // Convert string propertyType back to PropertyType enum if needed
+    console.log("🔍 Search triggered:", query, searchFilters);
+
+    // Convert string propertyType to enum if needed
     let propertyType: PropertyType | undefined = undefined;
     if (searchFilters?.propertyType) {
       const typeMapping: Record<string, PropertyType> = {
@@ -315,22 +319,22 @@ export default function PropertiesPageContent() {
       propertyType = typeMapping[searchFilters.propertyType];
     }
 
-    // Create enhanced filters that include natural language parameters
-    const newFilters = {
+    const newFilters: PropertyFilters = {
       ...filters,
-      search: query,
-      propertyType: propertyType,
+      search: query || undefined,
+      propertyType: propertyType || undefined,
       location: searchFilters?.location || undefined,
       bedrooms: searchFilters?.bedrooms || undefined,
       minPrice: searchFilters?.minPrice || undefined,
       maxPrice: searchFilters?.maxPrice || undefined,
-      page: 1,
+      page: 1, // Reset to first page on new search
     };
 
+    console.log("🎯 New filters after search:", newFilters);
     setFilters(newFilters);
     updateURL(newFilters);
 
-    // Track search with additional natural language data
+    // Track search
     trackSearch(query, {
       propertyType: propertyType,
       source: "properties_page",
@@ -344,11 +348,10 @@ export default function PropertiesPageContent() {
   };
 
   const handleFilterChange = (newFilters: Partial<PropertyFilters>) => {
-    const updatedFilters = { ...filters, ...newFilters, page: 1 }; // Reset to page 1 on filter change
+    const updatedFilters = { ...filters, ...newFilters, page: 1 };
     setFilters(updatedFilters);
     updateURL(updatedFilters);
 
-    // Track filter usage
     trackSearch("", {
       ...updatedFilters,
       source: "filter_change",
@@ -358,14 +361,13 @@ export default function PropertiesPageContent() {
   const handlePageChange = (page: number) => {
     const updatedFilters = { ...filters, page };
     setFilters(updatedFilters);
-    updateURL(updatedFilters); // Fix: Update URL with new page number
+    updateURL(updatedFilters);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handlePropertySelect = (property: Property) => {
     setSelectedProperty(property);
 
-    // Scroll to property card in list view if map is visible
     if (mapView) {
       const propertyElement = document.getElementById(
         `property-${property.id}`
@@ -383,12 +385,9 @@ export default function PropertiesPageContent() {
     const newMapView = !mapView;
     setMapView(newMapView);
 
-    // If disabling map view, fetch properties without bounds
     if (!newMapView) {
-      fetchProperties(); // Use current filters from state
+      fetchProperties(filters);
     }
-    // If enabling map view, don't filter by bounds until bounds are actually set
-    // The onBoundsChange will handle the initial bounds setting
   };
 
   // Helper function to update URL parameters
@@ -400,7 +399,6 @@ export default function PropertiesPageContent() {
     }
 
     if (currentFilters.propertyType) {
-      // Convert PropertyType enum back to URL-friendly format
       const typeMapping: Record<PropertyType, string> = {
         [PropertyType.VILLA]: "villa",
         [PropertyType.HOLIDAY_HOME]: "holiday-home",
@@ -416,7 +414,6 @@ export default function PropertiesPageContent() {
       params.set("featured", currentFilters.featured.toString());
     }
 
-    // Add natural language search parameters to URL
     if (currentFilters.location) {
       params.set("location", currentFilters.location);
     }
@@ -433,23 +430,26 @@ export default function PropertiesPageContent() {
       params.set("maxPrice", currentFilters.maxPrice.toString());
     }
 
-    if (currentFilters.viewType) {
-      params.set("viewType", currentFilters.viewType);
-    }
-
-    // Add page parameter to URL (only if not page 1)
     if (currentFilters.page && currentFilters.page > 1) {
       params.set("page", currentFilters.page.toString());
     }
 
-    // Update URL without causing a page reload
     const newURL = params.toString()
       ? `${pathname}?${params.toString()}`
       : pathname;
     router.replace(newURL, { scroll: false });
   };
 
-  // Memoized grid configuration based on map view
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (boundsUpdateTimeoutRef.current) {
+        clearTimeout(boundsUpdateTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Memoized grid configuration
   const gridCols = useMemo(() => {
     return mapView
       ? "md:grid-cols-1 lg:grid-cols-2"
@@ -466,7 +466,7 @@ export default function PropertiesPageContent() {
             <div className="flex-1 max-w-2xl">
               <OptimizedSearch
                 variant="page"
-                placeholder="Try: '2bhk holiday home in goa under 2cr' or search by type, location..."
+                placeholder="Search properties by name, location, type..."
                 onSearch={handleSearch}
                 showPropertyType={false}
                 enableNaturalLanguage={true}
@@ -638,7 +638,7 @@ export default function PropertiesPageContent() {
           </h1>
         </div>
 
-        {/* Main Content - Side by Side Layout */}
+        {/* Main Content */}
         <div
           className={`flex ${
             mapView ? "gap-8" : ""
@@ -681,7 +681,7 @@ export default function PropertiesPageContent() {
                   ))}
                 </div>
 
-                {/* Pagination Controls */}
+                {/* Pagination */}
                 {pagination && pagination.pages > 1 && (
                   <div className="flex justify-center items-center mt-12 gap-2">
                     <Button
@@ -762,8 +762,8 @@ export default function PropertiesPageContent() {
                   No properties found
                 </h3>
                 <p className="text-gray-600 mb-4">
-                  {mapView
-                    ? "Try zooming out or moving the map to see more properties."
+                  {filters.search
+                    ? `No properties found for "${filters.search}". Try different keywords or browse all properties.`
                     : "Try adjusting your search criteria or browse all properties."}
                 </p>
                 <Button
@@ -799,7 +799,3 @@ export default function PropertiesPageContent() {
     </div>
   );
 }
-
-//zoom out for perticular level
-//search to location
-// lat long for all properties for search function
