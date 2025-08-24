@@ -19,12 +19,15 @@ const nextConfig: NextConfig = {
         port: "",
         pathname: "/**",
       },
+
+      // AWS S3 direct access
       {
         protocol: "https",
-        hostname: "res.cloudinary.com",
+        hostname: "avacasa-images.s3.ap-south-1.amazonaws.com",
         port: "",
         pathname: "/**",
       },
+      // CloudFront configuration can be added here later if needed
     ],
   },
   /* config options here */

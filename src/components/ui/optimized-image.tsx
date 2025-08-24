@@ -18,8 +18,7 @@ interface OptimizedImageProps {
   onError?: () => void;
 }
 
-const DEFAULT_FALLBACK =
-  "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80";
+const DEFAULT_FALLBACK = ""; // No fallback - show placeholder instead
 
 export function OptimizedImage({
   src,
@@ -57,14 +56,8 @@ export function OptimizedImage({
       }
     }
 
-    // Fall back to default image
-    if (currentSrc !== fallbackSrc) {
-      setCurrentSrc(fallbackSrc);
-      setHasError(false);
-    } else {
-      setHasError(true);
-    }
-
+    // Show error placeholder when no fallback or fallback fails
+    setHasError(true);
     onError?.();
   };
 
@@ -74,17 +67,18 @@ export function OptimizedImage({
     onLoad?.();
   };
 
-  if (hasError) {
+  // Show placeholder if no valid source or error occurred
+  if (hasError || !currentSrc) {
     return (
       <div
         className={cn(
-          "flex items-center justify-center bg-gray-100 text-gray-400",
+          "flex flex-col items-center justify-center bg-gray-100 text-gray-400",
           fill ? "absolute inset-0" : "w-full h-full",
           className
         )}
       >
         <svg
-          className="w-8 h-8"
+          className="w-8 h-8 mb-2"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -96,6 +90,7 @@ export function OptimizedImage({
             d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
           />
         </svg>
+        <span className="text-xs font-medium">No Images</span>
       </div>
     );
   }
@@ -117,7 +112,7 @@ export function OptimizedImage({
         )}
         onLoad={handleLoad}
         onError={handleError}
-        unoptimized={currentSrc.includes("cloudinary.com")} // Skip Next.js optimization for Cloudinary
+        unoptimized={false} // Use Next.js optimization
         sizes={
           width && height
             ? `${width}px`
@@ -153,29 +148,29 @@ export function OptimizedImage({
 }
 
 /**
- * Get the best image URL from Cloudinary with proper transformations
+ * Get the AWS S3/CloudFront URL for images
  */
-export function getCloudinaryUrl(
-  publicId: string,
-  width?: number,
-  height?: number,
-  quality: number = 80
+export function getS3ImageUrl(
+  imagePath: string,
+  cloudFrontDomain?: string
 ): string {
-  if (!publicId) return DEFAULT_FALLBACK;
+  if (!imagePath) return DEFAULT_FALLBACK;
 
-  const baseUrl = "https://res.cloudinary.com/dyi2puqmg/image/upload";
-  const transformations = [];
-
-  if (width && height) {
-    transformations.push(`w_${width},h_${height},c_fill`);
-  } else if (width) {
-    transformations.push(`w_${width},c_scale`);
+  // If it's already a full URL, return as is
+  if (imagePath.startsWith("http")) {
+    return imagePath;
   }
 
-  transformations.push(`q_${quality}`, "f_auto");
+  // Get CloudFront domain from environment or parameter
+  const domain =
+    cloudFrontDomain || process.env.NEXT_PUBLIC_AWS_CLOUDFRONT_DOMAIN;
 
-  const transformString = transformations.join(",");
-  return `${baseUrl}/${transformString}/${publicId}`;
+  if (domain) {
+    return `https://${domain}/${imagePath}`;
+  }
+
+  // Fallback to the image path as is (assumes it's already a full URL)
+  return imagePath;
 }
 
 /**
@@ -198,14 +193,14 @@ export function PropertyImage({
   fill?: boolean;
   priority?: boolean;
 }) {
-  // Process images to ensure they're valid Cloudinary URLs
+  // Process images to ensure they're valid URLs
   const processedImages = images.filter(Boolean).map((img) => {
-    if (img.includes("cloudinary.com")) {
+    if (img.includes("cloudfront.net") || img.startsWith("http")) {
       return img;
     }
-    // If it's a public ID, convert to full Cloudinary URL
+    // If it's a relative path, convert to S3/CloudFront URL
     if (img && !img.startsWith("http")) {
-      return getCloudinaryUrl(img, width, height);
+      return getS3ImageUrl(img);
     }
     return img;
   });

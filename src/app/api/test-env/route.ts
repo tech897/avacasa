@@ -19,9 +19,13 @@ export async function GET(request: NextRequest) {
         exists: !!process.env.NEXTAUTH_SECRET,
         length: process.env.NEXTAUTH_SECRET?.length || 0,
       },
-      CLOUDINARY_CLOUD_NAME: {
-        exists: !!process.env.CLOUDINARY_CLOUD_NAME,
-        value: process.env.CLOUDINARY_CLOUD_NAME || "NOT SET",
+      AWS_S3_BUCKET: {
+        exists: !!process.env.AWS_S3_BUCKET,
+        value: process.env.AWS_S3_BUCKET || "NOT SET",
+      },
+      AWS_CLOUDFRONT_DOMAIN: {
+        exists: !!process.env.AWS_CLOUDFRONT_DOMAIN,
+        value: process.env.AWS_CLOUDFRONT_DOMAIN || "NOT SET",
       },
       NODE_ENV: process.env.NODE_ENV,
       VERCEL: process.env.VERCEL,
