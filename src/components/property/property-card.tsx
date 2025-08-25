@@ -219,7 +219,9 @@ export function PropertyCard({
                   {formatCurrency(property.price)}
                 </p>
                 <p className="text-xs text-white/80 font-medium drop-shadow-md">
-                  {property.area.toLocaleString()} sqft | Farmplot | {formatPlotSize(property.plotSize)}
+                  {property.area.toLocaleString()} sqft |{" "}
+                  {property.propertyType.replace("_", " ")} |{" "}
+                  {formatPlotSize(property.plotSize)}
                 </p>
               </div>
             </div>

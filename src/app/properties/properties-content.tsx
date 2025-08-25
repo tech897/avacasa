@@ -176,6 +176,7 @@ export default function PropertiesPageContent() {
       Object.fromEntries(searchParams.entries())
     );
     console.log("🎯 Setting filters:", urlFilters);
+    console.log("🎯 Previous filters:", filters);
 
     setFilters(urlFilters);
   }, [searchParams]);
@@ -250,6 +251,11 @@ export default function PropertiesPageContent() {
           });
 
           if (result.success) {
+            console.log("✅ Setting properties and pagination:", {
+              propertiesCount: result.data?.length || 0,
+              paginationTotal: result.pagination?.total || 0,
+              searchInFilters: currentFilters.search,
+            });
             setProperties(result.data);
             setPagination(result.pagination);
           } else {
@@ -276,10 +282,7 @@ export default function PropertiesPageContent() {
 
   // Fetch properties when filters change
   useEffect(() => {
-    if (isInitialLoad.current) {
-      isInitialLoad.current = false;
-    }
-    console.log("🔄 Filters changed, fetching properties");
+    console.log("🔄 Filters changed, fetching properties:", filters);
     fetchProperties(filters);
   }, [filters, fetchProperties]);
 

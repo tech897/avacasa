@@ -202,7 +202,7 @@ export async function GET(request: NextRequest) {
       try {
         return {
           ...property,
-          price: parseFloat(property.price) || 0,
+          price: parseInt(property.price) || 0,
           images: parseArray(property.images),
           amenities: parseArray(property.amenities),
           features: parseArray(property.features),
@@ -226,7 +226,7 @@ export async function GET(request: NextRequest) {
         // Return the property with basic fields only if parsing fails
         return {
           ...property,
-          price: parseFloat(property.price) || 0,
+          price: parseInt(property.price) || 0,
           images: [],
           amenities: [],
           features: [],

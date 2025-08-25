@@ -131,3 +131,7 @@ tsconfig.tsbuildinfo
 # OS generated files
 Thumbs.db
 .DS_Store
+
+PropertyImages*/
+PropertyImages4/
+PropertyImages5/

@@ -37,10 +37,13 @@ interface RelatedProperty extends Property {
   viewsThisWeek: number;
 }
 
-// Mock related properties data - In real app, this would come from recommendation API
+// Generate related properties from database - REMOVED MOCK DATA
 const generateMockRelatedProperties = (
   currentProperty: Property
 ): RelatedProperty[] => {
+  // Return empty array - no mock data, fetch from database instead
+  return [];
+  
   const baseProperties = [
     {
       id: "rel-1",
