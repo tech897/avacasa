@@ -637,7 +637,6 @@ export default function PropertiesPageContent() {
                     selectedProperty={selectedProperty}
                     onPropertySelect={handlePropertySelect}
                     onBoundsChange={handleBoundsChange}
-                    className="h-full w-full"
                   />
                 </div>
               </div>
