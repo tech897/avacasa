@@ -227,7 +227,7 @@ export default function PropertiesPageContent() {
           }
         }
       } catch (error) {
-        if (error.name !== "AbortError") {
+        if (error instanceof Error && error.name !== "AbortError") {
           console.error("❌ Fetch error:", error);
           setProperties([]);
           setPagination(null);
