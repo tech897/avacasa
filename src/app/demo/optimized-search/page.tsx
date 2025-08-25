@@ -58,7 +58,7 @@ export default function OptimizedSearchDemo() {
             </CardHeader>
             <CardContent className="space-y-4">
               <OptimizedSearch 
-                variant="header"
+                variant="page"
                 placeholder="Search properties..."
                 showPropertyType={false}
                 className="w-full"
