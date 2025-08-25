@@ -6,6 +6,7 @@ import { Heart, MapPin, Bed, Bath, Maximize, Share2 } from "lucide-react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatCurrency, getWhatsAppLink } from "@/lib/utils";
+import { formatPlotSize } from "@/lib/utils/property";
 import { useAuth } from "@/contexts/auth-context";
 import type { Property } from "@/types";
 import { PropertyImage } from "@/components/ui/optimized-image";
@@ -218,7 +219,7 @@ export function PropertyCard({
                   {formatCurrency(property.price)}
                 </p>
                 <p className="text-xs text-white/80 font-medium drop-shadow-md">
-                  {property.area} sqft | Farmplot | 12 Acres
+                  {property.area.toLocaleString()} sqft | Farmplot | {formatPlotSize(property.plotSize)}
                 </p>
               </div>
             </div>

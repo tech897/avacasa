@@ -219,6 +219,7 @@ export async function GET(request: NextRequest) {
           propertyManagement: property.propertyManagement || "",
           financialReturns: property.financialReturns || "",
           emiOptions: property.emiOptions || "",
+          plotSize: property.plotSize || null,
         };
       } catch (parseError) {
         console.error(`Error parsing property ${property.id}:`, parseError);
@@ -239,6 +240,7 @@ export async function GET(request: NextRequest) {
           propertyManagement: "",
           financialReturns: "",
           emiOptions: "",
+          plotSize: null,
         };
       }
     });
