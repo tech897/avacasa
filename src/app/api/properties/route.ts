@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { PrismaClient } from "@prisma/client";
+// Force fresh database connection
+const freshPrisma = new PrismaClient();
+
 import { z } from "zod";
 import { getContentSettings } from "@/lib/settings";
 import {
@@ -146,7 +149,7 @@ export async function GET(request: NextRequest) {
     console.log("🔍 Final where clause:", JSON.stringify(where, null, 2));
 
     // Fetch properties with detailed error handling
-    const allProperties = await prisma.property.findMany({
+    const allProperties = await freshPrisma.property.findMany({
       where,
       select: {
         id: true,
