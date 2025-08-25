@@ -1,0 +1,161 @@
+PROPERTIES NEEDING IMAGES - 107 Total
+==========================================
+
+Current Status:
+- Properties WITH images: 349/456 (76.5%)
+- Properties WITHOUT images: 107/456 (23.5%)
+- Goal: Achieve 100% image coverage
+
+Instructions:
+1. Create a folder called "RemainingPropertyImages"
+2. For each property below, gather images and create subfolders or zip files
+3. Name folders/files exactly as shown below (case-sensitive)
+4. Run the smart upload script to process all images
+
+PROPERTY LIST:
+==============
+
+1. Amansara
+2. Amarja Hills
+3. Amoda Reserve South Park
+4. Anandavana
+5. Anantara
+6. Anantavana
+7. Aroha de Goa
+8. Avacasa
+9. Banyan Grove Villa
+10. Blooms Estate & Eco Valley
+11. Blossom Creek
+12. Boat club villas
+13. Casa Altinho
+14. Colina Meadows
+15. Countrysyde
+16. DPAL Apartments Palms
+17. El Reino Villas
+18. El Rocio
+19. FarmFraX - The Iris
+20. Fireflies
+21. Forest By The Hills - Karjat
+22. Green Meadows
+23. Green Valley
+24. Hillsong Coffee Estate
+25. In the Hills
+26. Irene la Villa
+27. Joy Villas
+28. Kaira Holiday Homes
+29. La Avila Villas
+30. La Branca Villas
+31. La Covelo Villas
+32. La Ermida Villas - Goa
+33. La Estada Villas
+34. La Gemela Villas
+35. La Macedo Villas
+36. La Mosteiro Villas
+37. La Olvera Villas - Goa
+38. La Orilla Villas
+39. La Pasado Villas
+40. La Riberia Villas
+41. Living Farm
+42. Lonavala'S Finest
+43. Luxe Villas
+44. Miri
+45. Mythri, D Palaya
+46. Navrang Farms
+47. Nirvana
+48. NS Alti Level
+49. Panora Hills @The Nature
+50. Parva
+51. Pátios Branco – Nerul River View Villas
+52. Poomaale 2.0
+53. PRAANA
+54. Regalia Farms
+55. Rego's Serenity
+56. Residency Himalayas
+57. Rewild Doddaballapura
+58. Rio De Goa
+59. Riverstone Farms
+60. Rose Valley collective
+61. Rosewood Infinity 1
+62. Santa Cruz Residency
+63. Sapling
+64. Saptavana
+65. Shivalik Hill
+66. Signature One
+67. Silpa Celestia
+68. Silpa Raghava Botanica
+69. Sirivana
+70. SnowCrest Estate
+71. Solas Uluwatu
+72. Sunny Cuddles
+73. Sunny Nine
+74. Sunny Ocean View
+75. Sunny Umalas
+76. Sunny Wellness
+77. Surakhsha Enclave
+78. Suraksha Enclave
+79. Sushma Elementa
+80. Symphony
+81. Tamarind Valley collective
+82. The Green Grove
+83. The Kasul
+84. The Roots
+85. The Royal Nilgiris
+86. The Vilasya
+87. Urban Greens
+88. Vanya Awas
+89. Veora
+90. Verla Villas
+91. Victoria Hills
+92. Villa Alora
+93. Villa Cardo
+94. Villa Clara
+95. Villa Da Sirena
+96. Villa Da Zita
+97. Villa Encanto
+98. Villa Liuva
+99. Villa Mandarina
+100. Villa Paraiso
+101. Villaggio Felicita
+102. Villaggio Hyderabad
+103. Villaggio UNA
+104. Villamor Facade
+105. Waterscape Phase 2
+106. Wollywood Resort Residences
+107. Woods
+
+IMPORTANT NOTES:
+================
+- Property names are CASE-SENSITIVE and must match exactly
+- Special characters (like & , ' – @) must be included as shown
+- Some properties have specific formatting (e.g., "Lonavala'S Finest" with capital S)
+- Properties visible in your screenshot showing "No Images":
+  * Sunny Cuddles (#72)
+  * Sunny Nine (#73)  
+  * Sunny Umalas (#75)
+  * The Royal Nilgiris (#85)
+
+FOLDER STRUCTURE OPTIONS:
+=========================
+Option 1 - Subfolders:
+RemainingPropertyImages/
+  ├── Amansara/
+  │   ├── image1.jpg
+  │   └── image2.jpg
+  ├── Amarja Hills/
+  │   └── image1.jpg
+  └── ...
+
+Option 2 - Zip files:
+RemainingPropertyImages/
+  ├── Amansara.zip
+  ├── Amarja Hills.zip
+  └── ...
+
+Option 3 - Individual images:
+RemainingPropertyImages/
+  ├── Amansara.jpg
+  ├── Amarja Hills.jpg
+  └── ...
+
+After gathering images, run: node scripts/smart-image-upload.js
+(Update the folder list in the script to include "RemainingPropertyImages")
