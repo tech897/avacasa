@@ -1,0 +1,72 @@
+warning: in the working copy of 'src/app/api/locations/route.ts', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/src/app/api/locations/route.ts b/src/app/api/locations/route.ts[m
+[1mindex b38ec45..c7ed0c7 100644[m
+[1m--- a/src/app/api/locations/route.ts[m
+[1m+++ b/src/app/api/locations/route.ts[m
+[36m@@ -1,44 +1,44 @@[m
+[31m-import { NextRequest, NextResponse } from 'next/server'[m
+[31m-import { prisma } from '@/lib/db'[m
+[31m-import { z } from 'zod'[m
+[32m+[m[32mimport { NextRequest, NextResponse } from "next/server";[m
+[32m+[m[32mimport { prisma } from "@/lib/db";[m
+[32m+[m[32mimport { z } from "zod";[m
+ [m
+ const querySchema = z.object({[m
+   featured: z.coerce.boolean().optional(),[m
+   limit: z.coerce.number().optional(),[m
+[31m-})[m
+[32m+[m[32m});[m
+ [m
+ export async function GET(request: NextRequest) {[m
+   try {[m
+[31m-    const { searchParams } = new URL(request.url)[m
+[31m-    const query = querySchema.parse(Object.fromEntries(searchParams))[m
+[31m-    [m
+[32m+[m[32m    const { searchParams } = new URL(request.url);[m
+[32m+[m[32m    const query = querySchema.parse(Object.fromEntries(searchParams));[m
+[32m+[m
+     const where = {[m
+       ...(query.featured !== undefined && { featured: query.featured }),[m
+[31m-    }[m
+[31m-    [m
+[32m+[m[32m    };[m
+[32m+[m
+     const locations = await prisma.location.findMany({[m
+       where,[m
+       ...(query.limit && { take: query.limit }),[m
+       orderBy: [[m
+[31m-        { featured: 'desc' },[m
+[31m-        { propertyCount: 'desc' },[m
+[31m-        { name: 'asc' }[m
+[32m+[m[32m        { featured: "desc" },[m
+[32m+[m[32m        { propertyCount: "desc" },[m
+[32m+[m[32m        { name: "asc" },[m
+       ],[m
+[31m-    })[m
+[31m-    [m
+[32m+[m[32m    });[m
+[32m+[m
+     return NextResponse.json({[m
+       success: true,[m
+       data: locations,[m
+[31m-    })[m
+[32m+[m[32m    });[m
+   } catch (error) {[m
+[31m-    console.error('Error fetching locations:', error)[m
+[32m+[m[32m    console.error("Error fetching locations:", error);[m
+     return NextResponse.json([m
+[31m-      { [m
+[32m+[m[32m      {[m
+         success: false,[m
+[31m-        error: 'Failed to fetch locations',[m
+[31m-        message: error instanceof Error ? error.message : 'Unknown error'[m
+[32m+[m[32m        error: "Failed to fetch locations",[m
+[32m+[m[32m        message: error instanceof Error ? error.message : "Unknown error",[m
+       },[m
+       { status: 500 }[m
+[31m-    )[m
+[32m+[m[32m    );[m
+   }[m
+[31m-} [m
+\ No newline at end of file[m
+[32m+[m[32m}[m
