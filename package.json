@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "prisma generate && next build",
+    "build": "npx prisma generate && next build",
+    "build:vercel": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate",
     "import-csv": "node scripts/import-properties-from-csv.js",
     "migrate-images": "node scripts/production-image-migration.js",
     "check-properties": "node scripts/check-properties.js",
