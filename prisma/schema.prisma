@@ -143,6 +143,13 @@ model Location {
   featured     Boolean    @default(false)
   propertyCount Int       @default(0)
   active       Boolean    @default(true)
+  
+  // Location hierarchy fields
+  type         LocationType @default(MAJOR) // MAJOR or MINOR
+  parentId     String?      @db.ObjectId    // Reference to parent location (for minor locations)
+  parent       Location?    @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  children     Location[]   @relation("LocationHierarchy")
+  
   properties   Property[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -397,4 +404,9 @@ enum RatingStatus {
   APPROVED
   REJECTED
   FLAGGED
+}
+
+enum LocationType {
+  MAJOR
+  MINOR
 }

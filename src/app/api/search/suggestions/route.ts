@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { MongoClient } from "mongodb";
 import { z } from "zod";
 
 const querySchema = z.object({
@@ -40,38 +40,44 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // Connect to MongoDB
+    const client = new MongoClient(process.env.DATABASE_URL!);
+    await client.connect();
+    const db = client.db("avacasa_production");
+
     const suggestions: Suggestion[] = [];
 
     // Search locations
-    const locations = await prisma.location.findMany({
-      where: {
-        AND: [
+    const locations = await db
+      .collection("locations")
+      .find({
+        $and: [
           { active: true },
           {
-            OR: [
-              { name: { contains: searchTerm } },
-              { slug: { contains: searchTerm } },
+            $or: [
+              { name: { $regex: searchTerm, $options: "i" } },
+              { slug: { $regex: searchTerm, $options: "i" } },
             ],
           },
         ],
-      },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        propertyCount: true,
-      },
-      take: Math.ceil(query.limit / 2),
-      orderBy: [{ featured: "desc" }, { propertyCount: "desc" }],
-    });
+      })
+      .project({
+        _id: 1,
+        name: 1,
+        slug: 1,
+        propertyCount: 1,
+      })
+      .limit(Math.ceil(query.limit / 2))
+      .sort({ featured: -1, propertyCount: -1 })
+      .toArray();
 
     // Add location suggestions
     locations.forEach((location) => {
       suggestions.push({
         type: "location",
-        id: location.id,
+        id: location._id.toString(),
         title: location.name,
-        subtitle: `${location.propertyCount} properties`,
+        subtitle: `${location.propertyCount || 0} properties`,
         value: location.name,
         slug: location.slug,
         icon: "map-pin",
@@ -118,40 +124,62 @@ export async function GET(request: NextRequest) {
 
     // Search property titles and descriptions
     if (suggestions.length < query.limit) {
-      const properties = await prisma.property.findMany({
-        where: {
-          AND: [
-            { active: true },
-            { status: "AVAILABLE" },
-            {
-              OR: [
-                { title: { contains: searchTerm } },
-                { description: { contains: searchTerm } },
+      const properties = await db
+        .collection("properties")
+        .aggregate([
+          {
+            $match: {
+              $and: [
+                { active: true },
+                { status: "AVAILABLE" },
+                {
+                  $or: [
+                    { title: { $regex: searchTerm, $options: "i" } },
+                    { description: { $regex: searchTerm, $options: "i" } },
+                  ],
+                },
               ],
             },
-          ],
-        },
-        select: {
-          id: true,
-          title: true,
-          slug: true,
-          propertyType: true,
-          location: {
-            select: {
-              name: true,
+          },
+          {
+            $lookup: {
+              from: "locations",
+              localField: "locationId",
+              foreignField: "_id",
+              as: "location",
             },
           },
-        },
-        take: query.limit - suggestions.length,
-        orderBy: [{ featured: "desc" }, { views: "desc" }],
-      });
+          {
+            $addFields: {
+              location: { $arrayElemAt: ["$location", 0] },
+            },
+          },
+          {
+            $project: {
+              _id: 1,
+              title: 1,
+              slug: 1,
+              propertyType: 1,
+              location: { name: 1 },
+            },
+          },
+          {
+            $sort: { featured: -1, views: -1 },
+          },
+          {
+            $limit: query.limit - suggestions.length,
+          },
+        ])
+        .toArray();
 
       properties.forEach((property) => {
         suggestions.push({
           type: "property",
-          id: property.id,
+          id: property._id.toString(),
           title: property.title,
-          subtitle: `${property.propertyType} in ${property.location.name}`,
+          subtitle: `${property.propertyType} in ${
+            property.location?.name || "Unknown"
+          }`,
           value: property.title,
           slug: property.slug,
           icon: "home",
@@ -184,6 +212,9 @@ export async function GET(request: NextRequest) {
         return typePriority[a.type] - typePriority[b.type];
       })
       .slice(0, query.limit);
+
+    // Close MongoDB connection
+    await client.close();
 
     // Cache the results
     suggestionCache.set(cacheKey, {

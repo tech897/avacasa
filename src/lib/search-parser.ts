@@ -21,12 +21,12 @@ interface PriceUnit {
 
 export class SearchParser {
   private propertyTypeMap: PropertyTypeMapping = {
-    // Main property types
-    "holiday home": "HOLIDAY_HOME",
-    "holiday homes": "HOLIDAY_HOME",
-    "vacation home": "HOLIDAY_HOME",
-    "vacation homes": "HOLIDAY_HOME",
-    "resort home": "HOLIDAY_HOME",
+    // Main property types - Holiday homes are typically villas in our database
+    "holiday home": "VILLA",
+    "holiday homes": "VILLA",
+    "vacation home": "VILLA",
+    "vacation homes": "VILLA",
+    "resort home": "VILLA",
 
     villa: "VILLA",
     villas: "VILLA",

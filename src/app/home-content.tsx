@@ -55,16 +55,8 @@ export default function HomePageContent() {
       if (response.ok) {
         const result = await response.json();
         if (result.success) {
-          // Parse highlights from JSON string
-          const locationsWithParsedData = result.data.map((location: any) => ({
-            ...location,
-            coordinates: JSON.parse(
-              location.coordinates || '{"lat": 0, "lng": 0}'
-            ),
-            highlights: JSON.parse(location.highlights || "[]"),
-            amenities: JSON.parse(location.amenities || "[]"),
-          }));
-          setFeaturedLocations(locationsWithParsedData);
+          // Data is already parsed by the API, no need to parse again
+          setFeaturedLocations(result.data);
         }
       }
     } catch (error) {
@@ -92,8 +84,8 @@ export default function HomePageContent() {
   };
 
   // Handler for location card clicks
-  const handleLocationClick = (locationId: string) => {
-    router.push(`/locations/${locationId}`);
+  const handleLocationClick = (locationSlug: string) => {
+    router.push(`/locations/${locationSlug}`);
   };
 
   // Handler for feature view card clicks
@@ -108,7 +100,8 @@ export default function HomePageContent() {
   // Popular locations from database (diverse geographic spread)
   const mockLocations = [
     {
-      id: "assagao-goa",
+      id: "assagao",
+      slug: "assagao",
       name: "Assagao, Goa",
       description:
         "Charming North Goa village known for scenic beauty, heritage structures, and popular dining spots with luxury villas",
@@ -116,7 +109,8 @@ export default function HomePageContent() {
         "https://images.unsplash.com/photo-1559827260-dc66d52bef19?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
     },
     {
-      id: "mukteshwar-uk",
+      id: "mukteshwar",
+      slug: "mukteshwar",
       name: "Mukteshwar, UK",
       description:
         "Fastest growing holiday home zone in Uttarakhand with scenic views and tourism-friendly environment",
@@ -124,7 +118,8 @@ export default function HomePageContent() {
         "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
     },
     {
-      id: "igatpuri-mh",
+      id: "igatpuri",
+      slug: "igatpuri",
       name: "Igatpuri, MH",
       description:
         "Hill station in Western Ghats known for scenic beauty, cool climate, and proximity to Mumbai",
@@ -132,7 +127,8 @@ export default function HomePageContent() {
         "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
     },
     {
-      id: "jaipur-rj",
+      id: "jaipur",
+      slug: "jaipur",
       name: "Jaipur, RJ",
       description:
         "Vibrant real estate destination blending rich cultural heritage with modern urban development",
@@ -140,7 +136,8 @@ export default function HomePageContent() {
         "https://images.unsplash.com/photo-1477587458883-47145ed94245?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
     },
     {
-      id: "chikkaballapura-ka",
+      id: "chikkaballapura",
+      slug: "chikkaballapura",
       name: "Chikkaballapura, KA",
       description:
         "Emerging green-living destination near Bengaluru with clean air, hill views, and proximity to Kempegowda Airport",
@@ -148,7 +145,8 @@ export default function HomePageContent() {
         "https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
     },
     {
-      id: "shimla-hp",
+      id: "shimla",
+      slug: "shimla",
       name: "Shimla, HP",
       description:
         "Prominent hill station offering scenic beauty, colonial charm, and robust infrastructure in Himachal Pradesh",
@@ -325,7 +323,7 @@ export default function HomePageContent() {
               <div
                 key={location.id}
                 className="group cursor-pointer"
-                onClick={() => handleLocationClick(location.id)}
+                onClick={() => handleLocationClick(location.slug)}
               >
                 <div className="relative aspect-[4/3] overflow-hidden rounded-2xl">
                   <img
@@ -584,18 +582,18 @@ export default function HomePageContent() {
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {[
-                { name: "Siolim", slug: "siolim-goa" },
-                { name: "Calangute", slug: "calangute-goa" },
-                { name: "Anjuna", slug: "anjuna-goa" },
-                { name: "Vagator", slug: "vagator-goa" },
-                { name: "Morjim", slug: "morjim-goa" },
-                { name: "Pilerne", slug: "pilerne-goa" },
-                { name: "Moira", slug: "moira-goa" },
-                { name: "Parra", slug: "parra-goa" },
-                { name: "Mapusa", slug: "mapusa-goa" },
-                { name: "Reis Magos", slug: "reis-magos-goa" },
-                { name: "Aldona", slug: "aldona-goa" },
-                { name: "Mandrem", slug: "mandrem-goa" },
+                { name: "Siolim", slug: "siolim" },
+                { name: "Calangute", slug: "calangute" },
+                { name: "Anjuna", slug: "anjuna" },
+                { name: "Vagator", slug: "vagator" },
+                { name: "Morjim", slug: "morjim" },
+                { name: "Pilerne", slug: "pilerne" },
+                { name: "Moira", slug: "moira" },
+                { name: "Parra", slug: "parra" },
+                { name: "Mapusa", slug: "mapusa" },
+                { name: "Reis Magos", slug: "reis-magos" },
+                { name: "Aldona", slug: "aldona" },
+                { name: "Mandrem", slug: "mandrem" },
               ].map((location) => (
                 <Link
                   key={location.slug}
@@ -620,15 +618,15 @@ export default function HomePageContent() {
                 { name: "Coorg", slug: "coorg" },
                 { name: "Ooty", slug: "ooty" },
                 { name: "Munnar", slug: "munnar" },
-                { name: "Chikkamagaluru", slug: "chikkamagaluru-ka" },
-                { name: "Sakleshpur", slug: "sakleshpur-ka" },
-                { name: "Madikeri", slug: "madikeri-ka" },
-                { name: "Gonikoppa", slug: "gonikoppa-ka" },
-                { name: "Kodlipet", slug: "kodlipet-ka" },
-                { name: "Shimla", slug: "shimla-hp" },
-                { name: "Kasauli", slug: "kasauli-hp" },
-                { name: "Lonavala", slug: "lonavala-mh" },
-                { name: "Panchgani", slug: "panchgani-mh" },
+                { name: "Chikkamagaluru", slug: "chikkamagaluru" },
+                { name: "Sakleshpur", slug: "sakleshpur" },
+                { name: "Madikeri", slug: "madikeri" },
+                { name: "Gonikoppa", slug: "gonikoppa" },
+                { name: "Kodlipet", slug: "kodlipet" },
+                { name: "Shimla", slug: "shimla" },
+                { name: "Kasauli", slug: "kasauli" },
+                { name: "Lonavala", slug: "lonavala" },
+                { name: "Panchgani", slug: "panchgani" },
               ].map((location) => (
                 <Link
                   key={location.slug}
@@ -650,21 +648,21 @@ export default function HomePageContent() {
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {[
-                { name: "Kanakapura", slug: "kanakapura-ka" },
-                { name: "Nandi Hills", slug: "nandi-hills-ka" },
-                { name: "Ramanagara", slug: "ramanagara-ka" },
-                { name: "Chikkaballapur", slug: "chikkaballapur-ka" },
-                { name: "Doddaballapur", slug: "doddaballapur-ka" },
-                { name: "Devanahalli", slug: "devanahalli-ka" },
-                { name: "Denkanikottai", slug: "denkanikottai-ka" },
-                { name: "Madhugiri", slug: "madhugiri-ka" },
-                { name: "Pavagada", slug: "pavagada-ka" },
-                { name: "Shoolagiri", slug: "shoolagiri-ka" },
+                { name: "Kanakapura", slug: "kanakapura" },
+                { name: "Nandi Hills", slug: "nandi-hills" },
+                { name: "Ramanagara", slug: "ramanagara" },
+                { name: "Chikkaballapur", slug: "chikkaballapura" },
+                { name: "Doddaballapur", slug: "doddaballapur" },
+                { name: "Devanahalli", slug: "devanahalli" },
+                { name: "Denkanikottai", slug: "denkanikottai" },
+                { name: "Madhugiri", slug: "madhugiri" },
+                { name: "Pavagada", slug: "pavagada" },
+                { name: "Shoolagiri", slug: "shoolagiri" },
                 {
                   name: "Bagepalli",
-                  slug: "bagepalli-chikkaballapura-district-ka",
+                  slug: "bagepalli",
                 },
-                { name: "Madakkal", slug: "madakkal-ka" },
+                { name: "Madakkal", slug: "madakkal" },
               ].map((location) => (
                 <Link
                   key={location.slug}
@@ -686,17 +684,17 @@ export default function HomePageContent() {
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {[
-                { name: "Mukteshwar", slug: "mukteshwar-uk" },
-                { name: "Narendra Nagar", slug: "narendra-nagar-uk" },
+                { name: "Mukteshwar", slug: "mukteshwar" },
+                { name: "Narendra Nagar", slug: "narendra-nagar" },
                 { name: "Rishikesh", slug: "rishikesh" },
-                { name: "Pangot", slug: "pangot-uk" },
-                { name: "Marchula Village", slug: "marchula-village-uk" },
-                { name: "GMS Road Dehradun", slug: "gms-road-uk" },
+                { name: "Pangot", slug: "pangot" },
+                { name: "Marchula Village", slug: "marchula-village" },
+                { name: "GMS Road Dehradun", slug: "gms-road" },
                 {
                   name: "Narendranagar Rishikesh",
-                  slug: "narendranagar-rishikesh-uk",
+                  slug: "narendranagar-rishikesh",
                 },
-                { name: "Nata Dol", slug: "nata-dol-uk" },
+                { name: "Nata Dol", slug: "nata-dol" },
               ].map((location) => (
                 <Link
                   key={location.slug}
@@ -718,18 +716,18 @@ export default function HomePageContent() {
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {[
-                { name: "Karjat", slug: "karjat-mh" },
-                { name: "Igatpuri", slug: "igatpuri-mh" },
-                { name: "Murbad", slug: "murbad-mh" },
-                { name: "Khopoli", slug: "khopoli-mh" },
-                { name: "Alibaug", slug: "alibaug-maharashtra-mh" },
-                { name: "Varsoli", slug: "varsoli-mh" },
-                { name: "Bavdhan", slug: "bavdhan-mh" },
-                { name: "Khadakwasla", slug: "khadakwasla-mh" },
-                { name: "Somatane", slug: "somatane-mh" },
-                { name: "Urse", slug: "urse-mh" },
-                { name: "Alwand", slug: "alwand-mh" },
-                { name: "Kunegaon", slug: "kunegaon-mh" },
+                { name: "Karjat", slug: "karjat" },
+                { name: "Igatpuri", slug: "igatpuri" },
+                { name: "Murbad", slug: "murbad" },
+                { name: "Khopoli", slug: "khopoli" },
+                { name: "Alibaug", slug: "alibaug" },
+                { name: "Varsoli", slug: "varsoli" },
+                { name: "Bavdhan", slug: "bavdhan" },
+                { name: "Khadakwasla", slug: "khadakwasla" },
+                { name: "Somatane", slug: "somatane" },
+                { name: "Urse", slug: "urse" },
+                { name: "Alwand", slug: "alwand" },
+                { name: "Kunegaon", slug: "kunegaon" },
               ].map((location) => (
                 <Link
                   key={location.slug}
@@ -751,18 +749,18 @@ export default function HomePageContent() {
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {[
-                { name: "Mokila", slug: "mokila-tl" },
-                { name: "Medchal", slug: "medchal-tl" },
-                { name: "Shamirpet", slug: "shamirpet-tl" },
-                { name: "Vikarabad", slug: "vikarabad-tl" },
-                { name: "Mahabubnagar", slug: "mahabubnagar-tl" },
-                { name: "Shadnagar", slug: "shadnagar-tl" },
-                { name: "Shamshabad", slug: "shamshabad-tl" },
-                { name: "Kollur", slug: "kollur-tl" },
-                { name: "Puppalaguda", slug: "puppalaguda-tl" },
-                { name: "Moinabad", slug: "moinabad-tl" },
-                { name: "Kandukur", slug: "kandukur-tl" },
-                { name: "Sanga Reddy", slug: "sanga-reddy-tl" },
+                { name: "Mokila", slug: "mokila" },
+                { name: "Medchal", slug: "medchal" },
+                { name: "Shamirpet", slug: "shamirpet" },
+                { name: "Vikarabad", slug: "vikarabad" },
+                { name: "Mahabubnagar", slug: "mahabubnagar" },
+                { name: "Shadnagar", slug: "shadnagar" },
+                { name: "Shamshabad", slug: "shamshabad" },
+                { name: "Kollur", slug: "kollur" },
+                { name: "Puppalaguda", slug: "puppalaguda" },
+                { name: "Moinabad", slug: "moinabad" },
+                { name: "Kandukur", slug: "kandukur" },
+                { name: "Sanga Reddy", slug: "sanga-reddy" },
               ].map((location) => (
                 <Link
                   key={location.slug}
@@ -784,11 +782,11 @@ export default function HomePageContent() {
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
               {[
-                { name: "Kovalam", slug: "kovalam-tn" },
-                { name: "Mahabalipuram", slug: "mahabalipuram-tn" },
-                { name: "Kandigai", slug: "kandigai-tn" },
-                { name: "Akkarai", slug: "akkarai-tn" },
-                { name: "Yedakadu", slug: "yedakadu-tn" },
+                { name: "Kovalam", slug: "kovalam" },
+                { name: "Mahabalipuram", slug: "mahabalipuram" },
+                { name: "Kandigai", slug: "kandigai" },
+                { name: "Akkarai", slug: "akkarai" },
+                { name: "Yedakadu", slug: "yedakadu" },
               ].map((location) => (
                 <Link
                   key={location.slug}

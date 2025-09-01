@@ -231,6 +231,8 @@ export interface NewsletterFormData {
 // Filter Types
 export interface PropertyFilters {
   location?: string;
+  // Comma-separated location IDs for dropdown search
+  locations?: string;
   minPrice?: number;
   maxPrice?: number;
   propertyType?: PropertyType;

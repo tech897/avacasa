@@ -1,4 +1,4 @@
-import { prisma } from "./db";
+// Remove MongoDB import - this file is used by client components
 
 export interface SiteSettings {
   // Site Configuration
@@ -119,26 +119,27 @@ export async function getSiteSettings(): Promise<SiteSettings> {
       return settingsCache;
     }
 
-    // Get settings from database
-    const siteSettings = await prisma.siteSettings.findUnique({
-      where: { id: "settings" },
-    });
-
-    let settings = defaultSettings;
-    if (siteSettings) {
+    // Try to fetch from API if we're on the client side
+    if (typeof window !== "undefined") {
       try {
-        const parsedSettings = JSON.parse(siteSettings.data);
-        settings = { ...defaultSettings, ...parsedSettings };
-      } catch (error) {
-        console.error("Failed to parse settings data:", error);
+        const response = await fetch("/api/settings/public");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.settings) {
+            settingsCache = data.settings;
+            cacheTimestamp = now;
+            return data.settings;
+          }
+        }
+      } catch (fetchError) {
+        console.warn("Failed to fetch settings from API:", fetchError);
       }
     }
 
-    // Update cache
-    settingsCache = settings;
+    // Fallback to default settings
+    settingsCache = defaultSettings;
     cacheTimestamp = now;
-
-    return settings;
+    return defaultSettings;
   } catch (error) {
     console.error("Failed to get site settings:", error);
     return defaultSettings;
@@ -149,26 +150,12 @@ export async function updateSiteSettings(
   newSettings: Partial<SiteSettings>
 ): Promise<boolean> {
   try {
-    const currentSettings = await getSiteSettings();
-    const updatedSettings = { ...currentSettings, ...newSettings };
-
-    await prisma.siteSettings.upsert({
-      where: { id: "settings" },
-      update: {
-        data: JSON.stringify(updatedSettings),
-        updatedAt: new Date(),
-      },
-      create: {
-        id: "settings",
-        data: JSON.stringify(updatedSettings),
-      },
-    });
-
-    // Clear cache to force reload
-    settingsCache = null;
-    cacheTimestamp = 0;
-
-    return true;
+    // Note: This function is deprecated in favor of the admin API
+    // The admin API should handle settings updates using MongoDB
+    console.warn(
+      "updateSiteSettings is deprecated. Use the admin API instead."
+    );
+    return false;
   } catch (error) {
     console.error("Failed to update site settings:", error);
     return false;

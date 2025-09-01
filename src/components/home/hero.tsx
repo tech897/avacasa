@@ -49,13 +49,16 @@ export function Hero() {
           </p>
 
           {/* Search Bar */}
-          <div className="max-w-4xl mx-auto mb-12">
+          <div
+            className="max-w-4xl mx-auto mb-12"
+            style={{ position: "relative", zIndex: 1000 }}
+          >
             <OptimizedSearch
-              variant="page"
-              placeholder="Try: '2bhk holiday home in goa under 2cr' or search by type, location..."
+              variant="hero"
+              placeholder="Search destinations, property types, or try natural language like 'villa in Goa under 50 lakhs'..."
               showPropertyType={false}
               enableNaturalLanguage={true}
-              showParsedQuery={true}
+              showParsedQuery={false}
               className="w-full"
             />
           </div>

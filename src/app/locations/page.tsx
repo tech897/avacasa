@@ -1,63 +1,59 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { MapPin, Home, ArrowRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { MapPin, Home, ArrowRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 // Force dynamic rendering to avoid SSG issues with event handlers
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
 interface Location {
-  id: string
-  name: string
-  slug: string
-  description: string
-  image: string
-  propertyCount: number
-  featured: boolean
-  highlights: string[]
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  image: string;
+  propertyCount: number;
+  featured: boolean;
+  highlights: string[];
 }
 
 export default function LocationsPage() {
-  const [locations, setLocations] = useState<Location[]>([])
-  const [loading, setLoading] = useState(true)
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchLocations()
-  }, [])
+    fetchLocations();
+  }, []);
 
   const fetchLocations = async () => {
     try {
-      const response = await fetch('/api/locations')
+      const response = await fetch("/api/locations");
       if (response.ok) {
-        const result = await response.json()
+        const result = await response.json();
         if (result.success) {
-          // Parse highlights from JSON string
-          const locationsWithParsedData = result.data.map((location: any) => ({
-            ...location,
-            highlights: JSON.parse(location.highlights || '[]')
-          }))
-          setLocations(locationsWithParsedData)
+          // Data is already parsed by the API, no need to parse again
+          setLocations(result.data);
         }
       }
     } catch (error) {
-      console.error('Error fetching locations:', error)
+      console.error("Error fetching locations:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const featuredLocations = locations.filter(location => location.featured)
-  const otherLocations = locations.filter(location => !location.featured)
+  const featuredLocations = locations.filter((location) => location.featured);
+  const otherLocations = locations.filter((location) => !location.featured);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
       </div>
-    )
+    );
   }
 
   return (
@@ -70,17 +66,26 @@ export default function LocationsPage() {
               Explore Our Locations
             </h1>
             <p className="text-xl text-gray-600 mb-8 leading-relaxed">
-              From pristine beaches to misty mountains, discover premium holiday homes 
-              and farmlands across India's most beautiful destinations.
+              From pristine beaches to misty mountains, discover premium holiday
+              homes and farmlands across India's most beautiful destinations.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="bg-gray-900 hover:bg-gray-800 transition-all duration-300" asChild>
+              <Button
+                size="lg"
+                className="bg-gray-900 hover:bg-gray-800 transition-all duration-300"
+                asChild
+              >
                 <Link href="/properties">
                   <Home className="w-5 h-5 mr-2" />
                   Browse All Properties
                 </Link>
               </Button>
-              <Button size="lg" variant="outline" className="border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-300" asChild>
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-300"
+                asChild
+              >
                 <Link href="/contact">
                   Get Expert Advice
                   <ArrowRight className="w-5 h-5 ml-2" />
@@ -99,13 +104,17 @@ export default function LocationsPage() {
               Featured Destinations
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Our most popular locations with the highest demand and best investment potential.
+              Our most popular locations with the highest demand and best
+              investment potential.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {featuredLocations.map((location) => (
-              <div key={location.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow">
+              <div
+                key={location.id}
+                className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
+              >
                 <div className="relative aspect-[4/3]">
                   <Image
                     src={location.image}
@@ -122,27 +131,38 @@ export default function LocationsPage() {
                     <div className="bg-white/90 backdrop-blur-sm rounded-lg p-3">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-900">{location.name}</h3>
-                          <p className="text-sm text-gray-600">{location.propertyCount} Properties</p>
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {location.name}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {location.propertyCount} Properties
+                          </p>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="p-6">
                   <p className="text-gray-600 mb-4 line-clamp-3">
                     {location.description}
                   </p>
-                  
+
                   <div className="mb-4">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-2">What makes it special:</h4>
+                    <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                      What makes it special:
+                    </h4>
                     <div className="flex flex-wrap gap-2">
-                      {location.highlights.slice(0, 3).map((highlight, index) => (
-                        <span key={index} className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">
-                          {highlight}
-                        </span>
-                      ))}
+                      {location.highlights
+                        .slice(0, 3)
+                        .map((highlight, index) => (
+                          <span
+                            key={index}
+                            className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs"
+                          >
+                            {highlight}
+                          </span>
+                        ))}
                       {location.highlights.length > 3 && (
                         <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs">
                           +{location.highlights.length - 3} more
@@ -150,9 +170,12 @@ export default function LocationsPage() {
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="flex gap-3">
-                    <Button className="flex-1 bg-gray-900 hover:bg-gray-800 transition-all duration-300" asChild>
+                    <Button
+                      className="flex-1 bg-gray-900 hover:bg-gray-800 transition-all duration-300"
+                      asChild
+                    >
                       <Link href={`/locations/${location.slug}`}>
                         <MapPin className="w-4 h-4 mr-2" />
                         Explore {location.name}
@@ -174,13 +197,17 @@ export default function LocationsPage() {
               More Destinations
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Discover emerging destinations with great potential for holiday homes and farmland investments.
+              Discover emerging destinations with great potential for holiday
+              homes and farmland investments.
             </p>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {otherLocations.map((location) => (
-              <div key={location.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+              <div
+                key={location.id}
+                className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+              >
                 <div className="relative aspect-[4/3]">
                   <Image
                     src={location.image}
@@ -189,19 +216,28 @@ export default function LocationsPage() {
                     className="object-cover"
                   />
                 </div>
-                
+
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-xl font-semibold text-gray-900">{location.name}</h3>
-                    <span className="text-sm text-gray-500">{location.propertyCount} Properties</span>
+                    <h3 className="text-xl font-semibold text-gray-900">
+                      {location.name}
+                    </h3>
+                    <span className="text-sm text-gray-500">
+                      {location.propertyCount} Properties
+                    </span>
                   </div>
-                  
+
                   <p className="text-gray-600 mb-4 line-clamp-2">
                     {location.description}
                   </p>
-                  
+
                   <div className="flex items-center justify-between">
-                    <Button size="sm" variant="outline" className="border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-300" asChild>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-gray-200 text-gray-700 hover:bg-gray-50 transition-all duration-300"
+                      asChild
+                    >
                       <Link href={`/locations/${location.slug}`}>
                         View Details
                         <ArrowRight className="w-4 h-4 ml-1" />
@@ -222,9 +258,15 @@ export default function LocationsPage() {
             Can't Find Your Preferred Location?
           </h2>
           <p className="text-xl mb-8 text-gray-300">
-            We're constantly expanding to new destinations. Let us know where you'd like to invest.
+            We're constantly expanding to new destinations. Let us know where
+            you'd like to invest.
           </p>
-          <Button size="lg" variant="outline" className="bg-white text-gray-900 hover:bg-gray-100 border-white transition-all duration-300" asChild>
+          <Button
+            size="lg"
+            variant="outline"
+            className="bg-white text-gray-900 hover:bg-gray-100 border-white transition-all duration-300"
+            asChild
+          >
             <Link href="/contact">
               Contact Our Experts
               <ArrowRight className="w-5 h-5 ml-2" />
@@ -233,5 +275,5 @@ export default function LocationsPage() {
         </div>
       </section>
     </div>
-  )
-} 
+  );
+}

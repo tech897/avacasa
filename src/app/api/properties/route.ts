@@ -1,25 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-// Force fresh database connection
-const freshPrisma = new PrismaClient();
-
+import { MongoClient } from "mongodb";
 import { z } from "zod";
-import { getContentSettings } from "@/lib/settings";
-import {
-  parseArray,
-  parseObject,
-  parseCoordinates,
-  parseNearbyInfrastructure,
-  safeJsonParse,
-} from "@/lib/utils/json";
-import {
-  paginatedResponse,
-  errorResponse,
-  handleApiError,
-} from "@/lib/utils/api-response";
 
 const querySchema = z.object({
   location: z.string().optional(),
+  locations: z.string().optional(),
   minPrice: z.coerce.number().optional(),
   maxPrice: z.coerce.number().optional(),
   propertyType: z.string().optional(),
@@ -32,253 +17,240 @@ const querySchema = z.object({
   bounds: z.string().optional(),
 });
 
-// Helper function to check if coordinates are within bounds
-function isWithinBounds(coordinates: any, bounds: any): boolean {
-  if (!coordinates || !coordinates.lat || !coordinates.lng) return false;
-  if (!bounds) return true;
-
-  const { lat, lng } = coordinates;
-  const { north, south, east, west } = bounds;
-
-  return lat >= south && lat <= north && lng >= west && lng <= east;
-}
-
 export async function GET(request: NextRequest) {
   try {
+    console.log("🔍 Properties API (Direct MongoDB) - Starting...");
+
     const { searchParams } = new URL(request.url);
     const query = querySchema.parse(Object.fromEntries(searchParams));
 
-    console.log("🔍 API Request - Query params:", query);
+    console.log("🔍 Query params:", query);
 
-    // Parse bounds if provided
-    let boundsFilter = null;
-    if (query.bounds) {
-      try {
-        boundsFilter = JSON.parse(query.bounds);
-      } catch (e) {
-        console.warn("Invalid bounds format:", query.bounds);
-      }
-    }
+    // Connect directly to MongoDB
+    const client = new MongoClient(process.env.DATABASE_URL!);
+    await client.connect();
+    const db = client.db("avacasa_production");
 
-    // Get content settings for featured properties limit
-    const contentSettings = await getContentSettings();
-
-    // Use settings-based limit for featured properties
-    let effectiveLimit = query.limit;
-    if (query.featured === true) {
-      effectiveLimit = Math.min(
-        query.limit,
-        contentSettings.featuredPropertiesLimit
-      );
-    }
-
-    // Build the where clause step by step
-    const where: any = {
+    // Build MongoDB query
+    const mongoQuery: any = {
       status: "AVAILABLE",
       active: true,
     };
 
-    // Add property type filter
+    // Add filters
     if (query.propertyType) {
-      where.propertyType = query.propertyType;
+      mongoQuery.propertyType = query.propertyType;
     }
 
-    // Add bedrooms filter
     if (query.bedrooms) {
-      where.bedrooms = { gte: query.bedrooms };
+      mongoQuery.bedrooms = { $gte: query.bedrooms };
     }
 
-    // Add featured filter
     if (query.featured !== undefined) {
-      where.featured = query.featured;
+      mongoQuery.featured = query.featured;
     }
 
     // Add price range filters
     if (query.minPrice || query.maxPrice) {
-      where.price = {};
+      mongoQuery.price = {};
       if (query.minPrice) {
-        where.price.gte = query.minPrice.toString();
+        mongoQuery.price.$gte = query.minPrice.toString();
       }
       if (query.maxPrice) {
-        where.price.lte = query.maxPrice.toString();
+        mongoQuery.price.$lte = query.maxPrice.toString();
       }
     }
 
-    // Enhanced search functionality
+    // Add search functionality
     if (query.search) {
-      const searchTerm = query.search.trim();
-      console.log("🔍 Searching for:", searchTerm);
-
-      // Comprehensive search across multiple fields
-      where.OR = [
-        // Search in title (case insensitive)
-        { title: { contains: searchTerm, mode: "insensitive" } },
-        // Search in description (case insensitive)
-        { description: { contains: searchTerm, mode: "insensitive" } },
-        // Search in location name
-        { location: { name: { contains: searchTerm, mode: "insensitive" } } },
-        // Search in property type (convert to match enum)
-        ...(searchTerm.toLowerCase().includes("villa")
-          ? [{ propertyType: "VILLA" }]
-          : []),
-        ...(searchTerm.toLowerCase().includes("apartment")
-          ? [{ propertyType: "APARTMENT" }]
-          : []),
-        ...(searchTerm.toLowerCase().includes("farmland")
-          ? [{ propertyType: "FARMLAND" }]
-          : []),
-        ...(searchTerm.toLowerCase().includes("plot")
-          ? [{ propertyType: "PLOT" }]
-          : []),
-        ...(searchTerm.toLowerCase().includes("holiday")
-          ? [{ propertyType: "HOLIDAY_HOME" }]
-          : []),
-        ...(searchTerm.toLowerCase().includes("residential")
-          ? [{ propertyType: "RESIDENTIAL_PLOT" }]
-          : []),
+      mongoQuery.$or = [
+        { title: { $regex: query.search, $options: "i" } },
+        { description: { $regex: query.search, $options: "i" } },
       ];
     }
 
-    // Add location filter (separate from search)
-    if (query.location && !query.search) {
-      where.location = {
-        name: { contains: query.location, mode: "insensitive" },
-      };
+    // Add viewType filter (filter by features)
+    if (query.viewType) {
+      mongoQuery.features = { $regex: query.viewType, $options: "i" };
     }
 
-    console.log("🔍 Final where clause:", JSON.stringify(where, null, 2));
+    // Add location filter - we'll need to join with locations to filter by slug
+    let locationLookup = {};
+    if (query.location) {
+      // We'll filter after the location lookup in the aggregation pipeline
+      locationLookup = { "location.slug": query.location };
+    }
 
-    // Fetch properties with detailed error handling
-    const allProperties = await freshPrisma.property.findMany({
-      where,
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        description: true,
-        price: true,
-        propertyType: true,
-        bedrooms: true,
-        bathrooms: true,
-        area: true,
-        floors: true,
-        images: true,
-        amenities: true,
-        features: true,
-        coordinates: true,
-        status: true,
-        featured: true,
-        active: true,
-        views: true,
-        createdAt: true,
-        updatedAt: true,
-        // Extended fields
-        unitConfiguration: true,
-        aboutProject: true,
-        legalApprovals: true,
-        registrationCosts: true,
-        propertyManagement: true,
-        financialReturns: true,
-        investmentBenefits: true,
-        nearbyInfrastructure: true,
-        plotSize: true,
-        constructionStatus: true,
-        emiOptions: true,
-        tags: true,
-        // Location with only needed fields
-        location: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            coordinates: true,
-          },
+    console.log("🔍 MongoDB query:", JSON.stringify(mongoQuery, null, 2));
+
+    // Calculate pagination
+    const skip = (query.page - 1) * query.limit;
+
+    // Build aggregation pipeline with location filtering
+    const pipeline = [
+      { $match: mongoQuery },
+      {
+        $lookup: {
+          from: "locations",
+          localField: "locationId",
+          foreignField: "_id",
+          as: "location",
         },
       },
-      orderBy: [{ featured: "desc" }, { createdAt: "desc" }],
-    });
+      {
+        $addFields: {
+          location: { $arrayElemAt: ["$location", 0] },
+        },
+      },
+    ];
 
-    console.log(`🔍 Found ${allProperties.length} properties before parsing`);
+    // Add location filter after lookup if specified
+    if (query.location) {
+      pipeline.push({ $match: { "location.slug": query.location } });
+    }
 
-    // Parse JSON fields safely to prevent crashes
-    const parsedProperties = allProperties.map((property) => {
+    // Add sorting, pagination
+    pipeline.push(
+      { $sort: { featured: -1, createdAt: -1 } },
+      { $skip: skip },
+      { $limit: query.limit }
+    );
+
+    // Query properties with the complete pipeline
+    const properties = await db
+      .collection("properties")
+      .aggregate(pipeline)
+      .toArray();
+
+    // Get total count for pagination (with location filter if specified)
+    let totalCount;
+    if (query.location) {
+      // Use aggregation to count with location filter
+      const countPipeline = [
+        { $match: mongoQuery },
+        {
+          $lookup: {
+            from: "locations",
+            localField: "locationId",
+            foreignField: "_id",
+            as: "location",
+          },
+        },
+        {
+          $addFields: {
+            location: { $arrayElemAt: ["$location", 0] },
+          },
+        },
+        { $match: { "location.slug": query.location } },
+        { $count: "total" },
+      ];
+
+      const countResult = await db
+        .collection("properties")
+        .aggregate(countPipeline)
+        .toArray();
+
+      totalCount = countResult.length > 0 ? countResult[0].total : 0;
+    } else {
+      totalCount = await db.collection("properties").countDocuments(mongoQuery);
+    }
+
+    console.log(
+      `✅ Found ${properties.length} properties (${totalCount} total)`
+    );
+
+    // Transform the data for the frontend
+    const transformedProperties = properties.map((property) => {
       try {
         return {
-          ...property,
+          id: property._id.toString(),
+          title: property.title || "",
+          slug: property.slug || "",
+          description: property.description || "",
           price: parseInt(property.price) || 0,
-          images: parseArray(property.images),
-          amenities: parseArray(property.amenities),
-          features: parseArray(property.features),
-          coordinates: parseCoordinates(property.coordinates),
-          nearbyInfrastructure: parseNearbyInfrastructure(
-            property.nearbyInfrastructure
-          ),
-          unitConfiguration: parseObject(property.unitConfiguration),
-          legalApprovals: parseObject(property.legalApprovals),
-          registrationCosts: parseObject(property.registrationCosts),
-          investmentBenefits: parseArray(property.investmentBenefits),
-          tags: parseArray(property.tags),
-          // Keep text fields as strings
-          propertyManagement: property.propertyManagement || "",
-          financialReturns: property.financialReturns || "",
-          emiOptions: property.emiOptions || "",
-          plotSize: property.plotSize || null,
+          propertyType: property.propertyType || "",
+          bedrooms: property.bedrooms || 0,
+          bathrooms: property.bathrooms || 0,
+          area: property.area || 0,
+          floors: property.floors || 1,
+          status: property.status || "AVAILABLE",
+          featured: property.featured || false,
+          active: property.active !== false,
+          views: property.views || 0,
+          createdAt: property.createdAt,
+          updatedAt: property.updatedAt,
+          // Parse JSON fields safely
+          images: property.images ? JSON.parse(property.images) : [],
+          amenities: property.amenities ? JSON.parse(property.amenities) : [],
+          features: property.features ? JSON.parse(property.features) : [],
+          coordinates: property.coordinates
+            ? JSON.parse(property.coordinates)
+            : null,
+          // Location info from the lookup
+          location: property.location
+            ? {
+                id: property.location._id?.toString(),
+                name: property.location.name,
+                slug: property.location.slug,
+                coordinates: property.location.coordinates
+                  ? JSON.parse(property.location.coordinates)
+                  : null,
+              }
+            : null,
         };
       } catch (parseError) {
-        console.error(`Error parsing property ${property.id}:`, parseError);
-        // Return the property with basic fields only if parsing fails
+        console.error(`Error parsing property ${property._id}:`, parseError);
         return {
-          ...property,
+          id: property._id.toString(),
+          title: property.title || "",
+          slug: property.slug || "",
+          description: property.description || "",
           price: parseInt(property.price) || 0,
+          propertyType: property.propertyType || "",
+          bedrooms: property.bedrooms || 0,
+          bathrooms: property.bathrooms || 0,
+          area: property.area || 0,
+          floors: property.floors || 1,
+          status: property.status || "AVAILABLE",
+          featured: property.featured || false,
+          active: property.active !== false,
+          views: property.views || 0,
+          createdAt: property.createdAt,
+          updatedAt: property.updatedAt,
           images: [],
           amenities: [],
           features: [],
           coordinates: null,
-          nearbyInfrastructure: {},
-          unitConfiguration: {},
-          legalApprovals: {},
-          registrationCosts: {},
-          investmentBenefits: [],
-          tags: [],
-          propertyManagement: "",
-          financialReturns: "",
-          emiOptions: "",
-          plotSize: null,
+          location: property.location
+            ? {
+                id: property.location._id?.toString(),
+                name: property.location.name || "Unknown Location",
+                slug: property.location.slug || "",
+                coordinates: null,
+              }
+            : null,
         };
       }
     });
 
-    // Apply bounds filtering in JavaScript if needed
-    let filteredProperties = parsedProperties;
-    if (boundsFilter) {
-      filteredProperties = parsedProperties.filter((property) =>
-        isWithinBounds(property.coordinates, boundsFilter)
-      );
-    }
+    await client.close();
 
-    // Calculate pagination
-    const total = filteredProperties.length;
-    const pages = Math.ceil(total / effectiveLimit);
-    const startIndex = (query.page - 1) * effectiveLimit;
-    const endIndex = startIndex + effectiveLimit;
-    const paginatedProperties = filteredProperties.slice(startIndex, endIndex);
-
-    console.log(
-      `🔍 Returning ${paginatedProperties.length} properties (page ${query.page}/${pages})`
-    );
+    const totalPages = Math.ceil(totalCount / query.limit);
 
     return NextResponse.json({
       success: true,
-      data: paginatedProperties,
+      data: transformedProperties,
       pagination: {
         page: query.page,
-        limit: effectiveLimit,
-        total,
-        pages,
+        limit: query.limit,
+        total: totalCount,
+        pages: totalPages,
+        hasNext: query.page < totalPages,
+        hasPrev: query.page > 1,
       },
     });
   } catch (error) {
-    console.error("Properties API error:", error);
+    console.error("❌ Properties API error:", error);
     return NextResponse.json(
       {
         success: false,

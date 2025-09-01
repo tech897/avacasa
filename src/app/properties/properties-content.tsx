@@ -95,6 +95,10 @@ export default function PropertiesPageContent() {
     const location = searchParams.get("location");
     if (location) filters.location = location;
 
+    // New: read comma-separated location IDs used by dropdown search
+    const locationsParam = searchParams.get("locations");
+    if (locationsParam) filters.locations = locationsParam;
+
     const viewType = searchParams.get("viewType");
     if (viewType) filters.viewType = viewType;
 
@@ -180,6 +184,8 @@ export default function PropertiesPageContent() {
         // Add all filter parameters
         if (filters.search) params.append("search", filters.search);
         if (filters.location) params.append("location", filters.location);
+        // Pass through new locations parameter for dropdown multi-select
+        if (filters.locations) params.append("locations", filters.locations);
         if (filters.viewType) params.append("viewType", filters.viewType);
         if (filters.propertyType)
           params.append("propertyType", filters.propertyType);
@@ -253,6 +259,8 @@ export default function PropertiesPageContent() {
 
       if (newFilters.search) params.set("search", newFilters.search);
       if (newFilters.location) params.set("location", newFilters.location);
+      // Preserve locations param when set (multi-select from dropdown)
+      if (newFilters.locations) params.set("locations", newFilters.locations);
       if (newFilters.viewType) params.set("viewType", newFilters.viewType);
       if (newFilters.propertyType) {
         const typeMapping: Record<PropertyType, string> = {
@@ -475,8 +483,12 @@ export default function PropertiesPageContent() {
         {/* Search */}
         <div className="mb-6">
           <OptimizedSearch
+            variant="page"
+            placeholder="Search properties by name, location, type, or try natural language like 'villa in Goa under 50 lakhs'..."
             onSearch={handleSearch}
-            placeholder="Search properties by name, location, type..."
+            showPropertyType={false}
+            enableNaturalLanguage={true}
+            showParsedQuery={true}
             className="max-w-4xl"
           />
         </div>

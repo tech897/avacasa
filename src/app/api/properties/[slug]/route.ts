@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { MongoClient, ObjectId } from "mongodb";
 import {
   parseArray,
   parseObject,
@@ -14,32 +14,58 @@ export async function GET(
   try {
     const { slug } = await params;
 
-    const property = await prisma.property.findUnique({
-      where: {
-        slug: slug,
-        active: true,
-      },
-      include: {
-        location: true,
-      },
-    });
+    // Connect to MongoDB
+    const client = new MongoClient(process.env.DATABASE_URL!);
+    await client.connect();
+    const db = client.db("avacasa_production");
 
-    if (!property) {
+    // Find property with location lookup
+    const propertyResult = await db
+      .collection("properties")
+      .aggregate([
+        {
+          $match: {
+            slug: slug,
+            active: true,
+          },
+        },
+        {
+          $lookup: {
+            from: "locations",
+            localField: "locationId",
+            foreignField: "_id",
+            as: "location",
+          },
+        },
+        {
+          $addFields: {
+            location: { $arrayElemAt: ["$location", 0] },
+          },
+        },
+      ])
+      .toArray();
+
+    if (propertyResult.length === 0) {
+      await client.close();
       return NextResponse.json(
         { success: false, error: "Property not found" },
         { status: 404 }
       );
     }
 
+    const property = propertyResult[0];
+
     // Increment view count
-    await prisma.property.update({
-      where: { id: property.id },
-      data: { views: { increment: 1 } },
-    });
+    await db
+      .collection("properties")
+      .updateOne({ _id: property._id }, { $inc: { views: 1 } });
+
+    await client.close();
 
     // Parse JSON fields safely to prevent crashes
     const parsedProperty = {
       ...property,
+      id: property._id.toString(), // Convert MongoDB _id to string id
       price: parseFloat(property.price) || 0,
       images: parseArray(property.images),
       amenities: parseArray(property.amenities),
@@ -57,7 +83,20 @@ export async function GET(
       propertyManagement: property.propertyManagement || "",
       financialReturns: property.financialReturns || "",
       emiOptions: property.emiOptions || "",
+      // Transform location if it exists
+      location: property.location
+        ? {
+            ...property.location,
+            id: property.location._id?.toString(),
+          }
+        : null,
     };
+
+    // Remove MongoDB _id field from the response
+    delete parsedProperty._id;
+    if (parsedProperty.location?._id) {
+      delete parsedProperty.location._id;
+    }
 
     return NextResponse.json({
       success: true,

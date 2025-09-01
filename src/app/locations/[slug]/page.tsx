@@ -1,154 +1,128 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { notFound, useParams } from "next/navigation";
+import { useParams } from "next/navigation";
 import Image from "next/image";
-import { PropertyCard } from "@/components/property/property-card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import Link from "next/link";
 import {
   MapPin,
-  Search,
-  Filter,
+  Home,
+  ArrowRight,
+  ArrowLeft,
   Star,
-  Users,
-  Calendar,
-  Map,
-  Grid3X3,
+  Grid,
+  List,
 } from "lucide-react";
-import { PropertyType } from "@/types";
-import type { Property, Location } from "@/types";
-import dynamic from "next/dynamic";
+import { Button } from "@/components/ui/button";
+import { PropertyCard } from "@/components/property/property-card";
+import type { Property } from "@/types";
 
-const PropertyMap = dynamic(
-  () => import("@/components/property/property-map"),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-full bg-gray-100 animate-pulse rounded-lg" />
-    ),
-  }
-);
-
-interface LocationWithStats extends Location {
-  avgRating: number;
-  properties: Property[];
+interface Location {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  image: string;
+  coordinates: { lat: number; lng: number } | null;
+  highlights: string[];
+  amenities: Array<{ name: string; icon: string }>;
+  propertyCount: number;
+  featured: boolean;
 }
 
-export default function LocationPage() {
+export default function LocationDetailPage() {
   const params = useParams();
-  const slug = params?.slug as string;
-
-  const [location, setLocation] = useState<LocationWithStats | null>(null);
+  const slug = params.slug as string;
+  const [location, setLocation] = useState<Location | null>(null);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  const [propertiesLoading, setPropertiesLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mapView, setMapView] = useState(false);
-  const [filters, setFilters] = useState({
-    propertyType: undefined as PropertyType | undefined,
-    priceRange: "all",
-    sortBy: "featured",
-  });
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   useEffect(() => {
-    if (!slug) return;
-
-    fetchLocationData();
+    if (slug) {
+      fetchLocation();
+      fetchProperties();
+    }
   }, [slug]);
 
-  const fetchLocationData = async () => {
+  const fetchLocation = async () => {
     try {
       setLoading(true);
       setError(null);
-
       const response = await fetch(`/api/locations/${slug}`);
-      const result = await response.json();
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          notFound();
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setLocation(result.data);
+        } else {
+          setError("Location not found");
         }
-        throw new Error(result.error || "Failed to fetch location");
-      }
-
-      if (result.success) {
-        setLocation(result.data);
       } else {
-        throw new Error(result.error || "Failed to fetch location");
+        setError("Failed to load location");
       }
     } catch (error) {
       console.error("Error fetching location:", error);
-      setError(
-        error instanceof Error ? error.message : "Failed to load location"
-      );
+      setError("An error occurred while loading the location");
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchProperties = async () => {
+    try {
+      setPropertiesLoading(true);
+      // Use the location slug to filter properties
+      const response = await fetch(`/api/properties?location=${slug}&limit=50`);
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setProperties(result.data);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching properties:", error);
+    } finally {
+      setPropertiesLoading(false);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 animate-pulse">
-        <div className="h-96 bg-gray-200" />
-        <div className="container mx-auto px-4 py-8">
-          <div className="h-8 bg-gray-200 rounded mb-4 w-1/3" />
-          <div className="h-4 bg-gray-200 rounded mb-8 w-2/3" />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="bg-white rounded-lg shadow-sm">
-                <div className="aspect-[4/3] bg-gray-200 rounded-t-lg" />
-                <div className="p-4 space-y-3">
-                  <div className="h-4 bg-gray-200 rounded" />
-                  <div className="h-4 bg-gray-200 rounded w-2/3" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900"></div>
       </div>
     );
   }
 
-  if (error) {
+  if (error || !location) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            Error Loading Location
+            {error || "Location Not Found"}
           </h1>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <Button onClick={fetchLocationData}>Try Again</Button>
+          <p className="text-gray-600 mb-8">
+            The location you're looking for doesn't exist or couldn't be loaded.
+          </p>
+          <Button asChild>
+            <Link href="/locations">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Locations
+            </Link>
+          </Button>
         </div>
       </div>
     );
   }
 
-  if (!location) {
-    notFound();
-  }
-
-  const filteredProperties = location.properties.filter((property) => {
-    if (filters.propertyType && property.propertyType !== filters.propertyType)
-      return false;
-    return true;
-  });
-
-  const sortedProperties = [...filteredProperties].sort((a, b) => {
-    switch (filters.sortBy) {
-      case "featured":
-        return b.featured ? 1 : -1;
-      case "price_low":
-        return a.price - b.price;
-      case "price_high":
-        return b.price - a.price;
-      default:
-        return 0;
-    }
-  });
-
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       {/* Hero Section */}
-      <div className="relative h-96 overflow-hidden">
+      <section className="relative h-96 md:h-[500px] overflow-hidden">
         <Image
           src={location.image}
           alt={location.name}
@@ -156,196 +130,225 @@ export default function LocationPage() {
           className="object-cover"
           priority
         />
-        {/* Improved gradient overlay - lighter at top, darker at bottom */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/10" />
-
-        {/* Text positioned to show more of the image */}
-        <div className="absolute bottom-0 left-0 right-0 p-6">
-          <div className="container mx-auto">
-            <div className="max-w-3xl text-white">
-              <h1 className="text-3xl md:text-4xl font-bold mb-3">
+        <div className="absolute inset-0 bg-black/40" />
+        <div className="absolute inset-0 flex items-center">
+          <div className="container mx-auto px-4">
+            <div className="max-w-4xl mx-auto text-center text-white">
+              <div className="mb-4">
+                <Link
+                  href="/locations"
+                  className="inline-flex items-center text-white/80 hover:text-white transition-colors"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Locations
+                </Link>
+              </div>
+              {location.featured && (
+                <div className="mb-4">
+                  <span className="inline-flex items-center bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                    <Star className="w-4 h-4 mr-1" />
+                    Featured Destination
+                  </span>
+                </div>
+              )}
+              <h1 className="text-4xl md:text-6xl font-bold mb-4">
                 {location.name}
               </h1>
-              {/* Truncated description for better image visibility */}
-              <p className="text-base md:text-lg opacity-95 mb-4 line-clamp-2 leading-relaxed">
+              <p className="text-xl text-white/90 mb-8">
                 {location.description}
               </p>
-              <div className="flex items-center gap-4 md:gap-6 text-sm">
-                <div className="flex items-center gap-1">
-                  <Users className="w-4 h-4" />
-                  <span>{location.propertyCount} Properties</span>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <div className="bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2">
+                  <span className="text-white font-semibold">
+                    {properties.length} Properties Available
+                  </span>
                 </div>
-                <div className="flex items-center gap-1">
-                  <Star className="w-4 h-4 fill-current" />
-                  <span>{location.avgRating} Avg Rating</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  <span>Year-round Destination</span>
-                </div>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="border-white text-white hover:bg-white hover:text-gray-900 transition-all duration-300"
+                  asChild
+                >
+                  <Link href="/contact">
+                    Get Expert Advice
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Location Highlights */}
-      {location.highlights && location.highlights.length > 0 && (
-        <div className="bg-white border-b">
-          <div className="container mx-auto px-4 py-8">
-            <h2 className="text-2xl font-bold mb-6">
-              What makes {location.name} special
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {location.highlights.map((highlight, index) => (
-                <div
-                  key={index}
-                  className="text-center p-4 rounded-lg border hover:border-primary transition-colors"
+      {/* Properties Section */}
+      <section className="py-20">
+        <div className="container mx-auto px-4">
+          <div className="max-w-7xl mx-auto">
+            {/* Header with view toggle */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+              <div>
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                  Properties in {location.name}
+                </h2>
+                <p className="text-gray-600">
+                  {properties.length} properties available • From luxury homes
+                  to profitable farmland
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 mt-4 sm:mt-0">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`p-2 rounded-lg transition-colors ${
+                    viewMode === "grid"
+                      ? "bg-orange-500 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
                 >
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <MapPin className="w-6 h-6 text-primary" />
-                  </div>
-                  <span className="text-sm font-medium text-gray-700">
-                    {highlight}
-                  </span>
+                  <Grid className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`p-2 rounded-lg transition-colors ${
+                    viewMode === "list"
+                      ? "bg-orange-500 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+                >
+                  <List className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Location highlights */}
+            {location.highlights && location.highlights.length > 0 && (
+              <div className="mb-8 bg-gray-50 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Why {location.name}?
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {location.highlights.map((highlight, index) => (
+                    <div key={index} className="flex items-center">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full mr-3" />
+                      <span className="text-gray-700 text-sm">{highlight}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+              </div>
+            )}
 
-      {/* Filters and Properties */}
-      <div className="container mx-auto px-4 py-8">
-        {/* Filters Bar */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-8">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-4">
-              {/* Property Type Filter */}
-              <select
-                value={filters.propertyType || ""}
-                onChange={(e) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    propertyType: (e.target.value as PropertyType) || undefined,
-                  }))
-                }
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm"
-                title="Filter by property type"
+            {/* Properties Grid/List */}
+            {propertiesLoading ? (
+              <div
+                className={`grid gap-6 ${
+                  viewMode === "grid"
+                    ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                    : "grid-cols-1"
+                }`}
               >
-                <option value="">All Types</option>
-                <option value={PropertyType.VILLA}>Villas</option>
-                <option value={PropertyType.HOLIDAY_HOME}>Holiday Homes</option>
-                <option value={PropertyType.FARMLAND}>Managed Farmlands</option>
-                <option value={PropertyType.PLOT}>Plots</option>
-                <option value={PropertyType.APARTMENT}>Apartments</option>
-                <option value={PropertyType.RESIDENTIAL_PLOT}>
-                  Residential Plots
-                </option>
-              </select>
-
-              {/* Sort Filter */}
-              <select
-                value={filters.sortBy}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, sortBy: e.target.value }))
-                }
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm"
-                title="Sort properties by"
+                {[...Array(6)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="bg-white rounded-lg shadow-sm h-96 animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : properties.length > 0 ? (
+              <div
+                className={`grid gap-6 ${
+                  viewMode === "grid"
+                    ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
+                    : "grid-cols-1"
+                }`}
               >
-                <option value="featured">Featured First</option>
-                <option value="price_low">Price: Low to High</option>
-                <option value="price_high">Price: High to Low</option>
-              </select>
-
-              <Button variant="outline" size="sm">
-                <Filter className="w-4 h-4 mr-2" />
-                More Filters
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">
-                {sortedProperties.length} properties found
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setMapView(!mapView)}
-              >
-                {mapView ? (
-                  <>
-                    <Grid3X3 className="w-4 h-4 mr-2" />
-                    List View
-                  </>
-                ) : (
-                  <>
-                    <Map className="w-4 h-4 mr-2" />
-                    Map View
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="flex gap-8">
-          {/* Properties List */}
-          <div
-            className={`${
-              mapView ? "lg:w-1/2" : "w-full"
-            } transition-all duration-300`}
-          >
-            <div
-              className={`grid grid-cols-1 ${
-                mapView
-                  ? "md:grid-cols-1 lg:grid-cols-2"
-                  : "md:grid-cols-2 lg:grid-cols-3"
-              } gap-6`}
-            >
-              {sortedProperties.map((property) => (
-                <PropertyCard key={property.id} property={property} />
-              ))}
-            </div>
-
-            {sortedProperties.length === 0 && (
+                {properties.map((property) => (
+                  <PropertyCard key={property.id} property={property} />
+                ))}
+              </div>
+            ) : (
               <div className="text-center py-16">
-                <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <MapPin className="w-12 h-12 text-gray-400" />
+                <div className="mx-auto mb-4 w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                  <Home className="w-8 h-8 text-gray-400" />
                 </div>
-                <h3 className="text-2xl font-semibold text-gray-900 mb-4">
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
                   No Properties Found
                 </h3>
-                <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                  We couldn&apos;t find any properties matching your criteria in{" "}
-                  {location.name}.
+                <p className="text-gray-600 mb-6">
+                  We don't have any properties listed in {location.name} yet.
                 </p>
-                <Button
-                  onClick={() =>
-                    setFilters({
-                      propertyType: undefined,
-                      priceRange: "all",
-                      sortBy: "featured",
-                    })
-                  }
-                >
-                  Clear Filters
+                <Button asChild>
+                  <Link href="/contact">
+                    Contact Us for Custom Search
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Link>
                 </Button>
               </div>
             )}
           </div>
+        </div>
+      </section>
 
-          {/* Map View */}
-          {mapView && (
-            <div className="lg:w-1/2">
-              <div className="sticky top-24 h-[600px] rounded-lg overflow-hidden shadow-lg">
-                <PropertyMap properties={sortedProperties} />
+      {/* Map Section (if coordinates available) */}
+      {location.coordinates && (
+        <section className="py-20 bg-gray-50">
+          <div className="container mx-auto px-4">
+            <div className="max-w-4xl mx-auto text-center">
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                Location
+              </h2>
+              <p className="text-lg text-gray-600 mb-8">
+                {location.name} is strategically located for easy access and
+                beautiful surroundings.
+              </p>
+              <div className="bg-white rounded-xl p-4 shadow-sm">
+                <div className="flex items-center justify-center text-gray-500">
+                  <MapPin className="w-8 h-8 mr-3" />
+                  <div>
+                    <p className="text-sm">Coordinates</p>
+                    <p className="font-medium">
+                      {location.coordinates.lat.toFixed(4)},{" "}
+                      {location.coordinates.lng.toFixed(4)}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
-          )}
+          </div>
+        </section>
+      )}
+
+      {/* CTA Section */}
+      <section className="py-20 bg-gray-900 text-white">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">
+            Ready to Invest in {location.name}?
+          </h2>
+          <p className="text-xl mb-8 text-gray-300">
+            Connect with our experts to explore the best investment
+            opportunities.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              size="lg"
+              className="bg-orange-500 hover:bg-orange-600 transition-all duration-300"
+              asChild
+            >
+              <Link href={`/properties?location=${location.slug}`}>
+                View Properties
+                <ArrowRight className="w-5 h-5 ml-2" />
+              </Link>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="border-white text-white hover:bg-white hover:text-gray-900 transition-all duration-300"
+              asChild
+            >
+              <Link href="/contact">Contact Expert</Link>
+            </Button>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

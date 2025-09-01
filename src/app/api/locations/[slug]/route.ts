@@ -1,92 +1,70 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { MongoClient } from "mongodb";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ slug: string }> }
-) {
+interface RouteParams {
+  params: {
+    slug: string;
+  };
+}
+
+export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { slug } = await params;
 
-    const location = await prisma.location.findUnique({
-      where: {
-        slug: slug,
-        active: true,
-      },
-      include: {
-        properties: {
-          where: {
-            active: true,
-            status: "AVAILABLE",
-          },
-          select: {
-            id: true,
-            title: true,
-            slug: true,
-            description: true,
-            price: true,
-            propertyType: true,
-            bedrooms: true,
-            bathrooms: true,
-            area: true,
-            images: true,
-            amenities: true,
-            features: true,
-            coordinates: true,
-            featured: true,
-            views: true,
-            createdAt: true,
-            updatedAt: true,
-            status: true,
-          },
-        },
-      },
-    });
+    // Connect directly to MongoDB
+    const client = new MongoClient(process.env.DATABASE_URL!);
+    await client.connect();
+    const db = client.db("avacasa_production");
+
+    // Find location by slug
+    const location = await db.collection("locations").findOne({ slug });
 
     if (!location) {
+      await client.close();
       return NextResponse.json(
-        {
-          success: false,
-          error: "Location not found",
-        },
+        { success: false, error: "Location not found" },
         { status: 404 }
       );
     }
 
-    // Calculate real property count
-    const propertyCount = location.properties.length;
-
-    // Calculate average rating (mock for now, can be enhanced with actual reviews)
-    const avgRating = 4.8; // This would come from actual reviews in the future
-
-    // Parse JSON fields
-    const locationData = {
-      ...location,
-      coordinates: JSON.parse(location.coordinates || '{"lat": 0, "lng": 0}'),
-      highlights: JSON.parse(location.highlights || "[]"),
-      amenities: JSON.parse(location.amenities || "[]"),
-      propertyCount,
-      avgRating,
-      properties: location.properties.map((property) => ({
-        ...property,
-        price: parseFloat(property.price),
-        images: JSON.parse(property.images || "[]"),
-        amenities: JSON.parse(property.amenities || "[]"),
-        features: JSON.parse(property.features || "[]"),
-        coordinates: property.coordinates
-          ? JSON.parse(property.coordinates)
-          : null,
-        location: {
-          id: location.id,
-          name: location.name,
-          slug: location.slug,
-        },
-      })),
+    // Safe JSON parsing function
+    const safeJsonParse = (value: any, fallback: any = null) => {
+      if (!value) return fallback;
+      if (typeof value === "string") {
+        try {
+          return JSON.parse(value);
+        } catch (error) {
+          console.error("JSON parse error for value:", value, error);
+          return fallback;
+        }
+      }
+      return value;
     };
+
+    // Transform the data for the frontend
+    const transformedLocation = {
+      id: location._id.toString(),
+      name: location.name,
+      slug: location.slug,
+      description: location.description,
+      image: location.image,
+      coordinates: safeJsonParse(location.coordinates, null),
+      highlights: safeJsonParse(location.highlights, []),
+      amenities: safeJsonParse(location.amenities, []),
+      featured: location.featured || false,
+      propertyCount: location.propertyCount || 0,
+      active: location.active !== false,
+      type: location.type,
+      parentId: location.parentId,
+      createdAt: location.createdAt,
+      updatedAt: location.updatedAt,
+    };
+
+    await client.close();
 
     return NextResponse.json({
       success: true,
-      data: locationData,
+      data: transformedLocation,
     });
   } catch (error) {
     console.error("Error fetching location:", error);
