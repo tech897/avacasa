@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Top pages with engagement metrics
-    const pageStats = pageViews.reduce((acc, view) => {
+    const pageStats = pageViews.reduce((acc: any, view: any) => {
       if (!acc[view.path]) {
         acc[view.path] = { views: 0, uniqueUsers: new Set() }
       }
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
       .slice(0, 10)
 
     // User activity breakdown
-    const activityBreakdown = userActivities.reduce((acc, activity) => {
+    const activityBreakdown = userActivities.reduce((acc: any, activity: any) => {
       acc[activity.action] = (acc[activity.action] || 0) + 1
       return acc
     }, {} as Record<string, number>)
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
     // Property performance
     const propertyViews = userActivities
       .filter(activity => activity.action === 'PROPERTY_VIEW')
-      .reduce((acc, activity) => {
+      .reduce((acc: any, activity: any) => {
         if (activity.resource) {
           acc[activity.resource] = (acc[activity.resource] || 0) + 1
         }
@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
     // Location performance with real data
     const locationViews = userActivities
       .filter(activity => activity.action === 'LOCATION_VIEW')
-      .reduce((acc, activity) => {
+      .reduce((acc: any, activity: any) => {
         if (activity.resource) {
           acc[activity.resource] = (acc[activity.resource] || 0) + 1
         }
