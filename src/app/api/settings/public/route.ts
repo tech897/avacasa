@@ -57,7 +57,7 @@ export async function GET() {
 
     const siteSettings = await db
       .collection("site_settings")
-      .findOne({ _id: "settings" });
+      .findOne({ _id: "settings" as any });
     await client.close();
 
     let settings = defaultSettings;

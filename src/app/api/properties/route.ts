@@ -111,9 +111,9 @@ export async function GET(request: NextRequest) {
 
     // Add sorting, pagination
     pipeline.push(
-      { $sort: { featured: -1, createdAt: -1 } },
-      { $skip: skip },
-      { $limit: query.limit }
+      { $sort: { featured: -1, createdAt: -1 } } as any,
+      { $skip: skip } as any,
+      { $limit: query.limit } as any
     );
 
     // Query properties with the complete pipeline

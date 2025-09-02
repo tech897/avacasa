@@ -1,52 +1,52 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 
 export async function GET(request: NextRequest) {
   try {
     // Get all categories with post counts
     const categories = await prisma.blogPost.groupBy({
-      by: ['category'],
+      by: ["category"],
       where: {
-        status: 'PUBLISHED'
+        status: "PUBLISHED",
       },
       _count: {
-        category: true
+        category: true,
       },
       orderBy: {
         _count: {
-          category: 'desc'
-        }
-      }
-    })
+          category: "desc",
+        },
+      },
+    });
 
     // Get total published posts count
     const totalPosts = await prisma.blogPost.count({
       where: {
-        status: 'PUBLISHED'
-      }
-    })
+        status: "PUBLISHED",
+      },
+    });
 
     // Format response with "All" category
     const formattedCategories = [
       {
-        name: 'All',
-        count: totalPosts
+        name: "All",
+        count: totalPosts,
       },
       ...categories.map((cat: any) => ({
         name: cat.category,
-        count: cat._count.category
-      }))
-    ]
+        count: cat._count.category,
+      })),
+    ];
 
     return NextResponse.json({
       success: true,
-      data: formattedCategories
-    })
+      data: formattedCategories,
+    });
   } catch (error) {
-    console.error('Categories fetch error:', error)
+    console.error("Categories fetch error:", error);
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: "Internal server error" },
       { status: 500 }
-    )
+    );
   }
-} 
+}

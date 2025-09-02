@@ -101,12 +101,10 @@ export async function GET(request: NextRequest) {
 
     // Get property counts for matching types
     for (const type of matchingTypes) {
-      const count = await prisma.property.count({
-        where: {
-          propertyType: type.key as any,
-          status: "AVAILABLE",
-          active: true,
-        },
+      const count = await db.collection("properties").countDocuments({
+        propertyType: type.key,
+        status: "AVAILABLE",
+        active: true,
       });
 
       if (count > 0) {

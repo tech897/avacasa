@@ -93,9 +93,9 @@ export async function GET(
     };
 
     // Remove MongoDB _id field from the response
-    delete parsedProperty._id;
+    delete (parsedProperty as any)._id;
     if (parsedProperty.location?._id) {
-      delete parsedProperty.location._id;
+      delete (parsedProperty.location as any)._id;
     }
 
     return NextResponse.json({

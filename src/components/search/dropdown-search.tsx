@@ -289,7 +289,7 @@ export function DropdownSearch({
   // Helper function to get dropdown position
   const getDropdownPosition = useCallback(
     (
-      ref: React.RefObject<HTMLDivElement>,
+      ref: React.RefObject<HTMLDivElement | null>,
       align: "left" | "right" = "left"
     ) => {
       if (!ref.current) return {};
