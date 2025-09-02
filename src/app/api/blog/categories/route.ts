@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
         name: 'All',
         count: totalPosts
       },
-      ...categories.map(cat => ({
+      ...categories.map((cat: any) => ({
         name: cat.category,
         count: cat._count.category
       }))
