@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
         select: { email: true, name: true }
       })
       
-      subscribers.forEach(subscriber => {
+      subscribers.forEach((subscriber: any) => {
         if (!recipients.includes(subscriber.email)) {
           recipients.push(subscriber.email)
           if (subscriber.name) {
