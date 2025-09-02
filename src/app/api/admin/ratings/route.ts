@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     ])
 
     // Parse property images
-    const parsedRatings = ratings.map(rating => ({
+    const parsedRatings = ratings.map((rating: any) => ({
       ...rating,
       property: {
         ...rating.property,
