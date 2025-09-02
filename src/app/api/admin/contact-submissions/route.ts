@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       _count: { status: true }
     })
 
-    const statusStats = statusCounts.reduce((acc, item) => {
+    const statusStats = statusCounts.reduce((acc: any, item: any) => {
       acc[item.status] = item._count.status
       return acc
     }, {} as Record<string, number>)
