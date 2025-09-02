@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     // Parse tags for each post safely
-    const parsedPosts = posts.map((post) => ({
+    const parsedPosts = posts.map((post: any) => ({
       ...post,
       tags: parseArray(post.tags),
     }));
