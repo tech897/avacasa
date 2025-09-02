@@ -67,7 +67,7 @@ export async function GET(
     // Parse JSON fields in favorites
     const userWithParsedData = {
       ...user,
-      favorites: user.favorites.map(fav => ({
+      favorites: user.favorites.map((fav: any) => ({
         ...fav,
         property: {
           ...fav.property,
