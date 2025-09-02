@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Parse JSON fields for each property
-    const parsedProperties = properties.map((property) => ({
+    const parsedProperties = properties.map((property: any) => ({
       ...property,
       images: JSON.parse(property.images || "[]"),
       amenities: JSON.parse(property.amenities || "[]"),
