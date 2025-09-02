@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
     // User journey analysis
     const journeyData = userActivities
       .filter(activity => activity.sessionId)
-      .reduce((acc, activity) => {
+      .reduce((acc: any, activity: any) => {
         const sessionId = activity.sessionId!
         if (!acc[sessionId]) {
           acc[sessionId] = []
@@ -172,7 +172,7 @@ export async function GET(request: NextRequest) {
     // Common user paths
     const userPaths = Object.values(journeyData)
       .map(journey => journey.map(step => step.action).join(' → '))
-      .reduce((acc, path) => {
+      .reduce((acc: any, path: any) => {
         acc[path] = (acc[path] || 0) + 1
         return acc
       }, {} as Record<string, number>)
@@ -198,7 +198,7 @@ export async function GET(request: NextRequest) {
     // Device and browser stats from user agents
     const deviceStats = userActivities
       .filter(activity => activity.userAgent)
-      .reduce((acc, activity) => {
+      .reduce((acc: any, activity: any) => {
         const userAgent = activity.userAgent!.toLowerCase()
         let device = 'Desktop'
         if (userAgent.includes('mobile')) device = 'Mobile'
@@ -216,7 +216,7 @@ export async function GET(request: NextRequest) {
     // Referrer stats
     const referrerStats = pageViews
       .filter(view => view.referrer && !view.referrer.includes(request.headers.get('host') || ''))
-      .reduce((acc, view) => {
+      .reduce((acc: any, view: any) => {
         try {
           const url = new URL(view.referrer!)
           const domain = url.hostname
@@ -244,7 +244,7 @@ export async function GET(request: NextRequest) {
       newContacts: contactSubmissions.filter(c => c.createdAt >= last24Hours).length,
       topPages: pageViews
         .filter(v => v.createdAt >= last24Hours)
-        .reduce((acc, view) => {
+        .reduce((acc: any, view: any) => {
           acc[view.path] = (acc[view.path] || 0) + 1
           return acc
         }, {} as Record<string, number>)
@@ -287,7 +287,7 @@ export async function GET(request: NextRequest) {
 }
 
 function calculateAvgSessionDuration(activities: any[]): number {
-  const sessions = activities.reduce((acc, activity) => {
+  const sessions = activities.reduce((acc: any, activity: any) => {
     const sessionId = activity.sessionId || activity.userId
     if (!sessionId) return acc
     
