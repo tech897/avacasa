@@ -60,19 +60,19 @@ export async function GET(request: NextRequest) {
       date.setDate(date.getDate() - i)
       const dateStr = date.toISOString().split('T')[0]
       
-      const dayViews = pageViews.filter(view => 
+      const dayViews = pageViews.filter((view: any) => 
         view.createdAt.toISOString().split('T')[0] === dateStr
       ).length
       
-      const dayUsers = users.filter(user => 
+      const dayUsers = users.filter((user: any) => 
         user.createdAt.toISOString().split('T')[0] === dateStr
       ).length
       
-      const dayContacts = contactSubmissions.filter(contact => 
+      const dayContacts = contactSubmissions.filter((contact: any) => 
         contact.createdAt.toISOString().split('T')[0] === dateStr
       ).length
       
-      const dayActivities = userActivities.filter(activity => 
+      const dayActivities = userActivities.filter((activity: any) => 
         activity.createdAt.toISOString().split('T')[0] === dateStr
       ).length
       
