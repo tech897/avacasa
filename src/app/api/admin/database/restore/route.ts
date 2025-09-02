@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     const { clearExisting = false, skipPasswords = true } = options
 
     // Start transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       const restored = {
         users: 0,
         properties: 0,
