@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
     })
 
     // Parse JSON fields in properties
-    const favoritesWithParsedData = favorites.map(favorite => ({
+    const favoritesWithParsedData = favorites.map((favorite: any) => ({
       ...favorite,
       property: {
         ...favorite.property,
