@@ -138,13 +138,14 @@ npm run dev
 The application is configured for Vercel deployment with automatic deployments from the main branch.
 
 #### **Vercel Environment Variables**
+
 Configure these environment variables in your Vercel dashboard:
 
 ```bash
 # Database
 DATABASE_URL="your_mongodb_connection_string"
 
-# Authentication  
+# Authentication
 NEXTAUTH_SECRET="your_secret_key"
 NEXTAUTH_URL="https://your-deployment-url.vercel.app"
 
@@ -162,6 +163,7 @@ NODE_ENV="production"
 ```
 
 #### **Build Configuration**
+
 The project uses `npm run build:vercel` for Vercel deployments, which skips Prisma generation since the main application now uses direct MongoDB connections.
 
 ## 📖 API Documentation
