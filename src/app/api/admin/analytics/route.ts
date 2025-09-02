@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
     }, {} as Record<string, { views: number; uniqueUsers: Set<string> }>)
 
     const topPages = Object.entries(pageStats)
-      .map(([path, stats]) => ({
+      .map(([path, stats]: [string, any]) => ({
         path,
         views: stats.views,
         uniqueUsers: stats.uniqueUsers.size
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
       }, {} as Record<string, number>)
 
     const topProperties = Object.entries(propertyViews)
-      .map(([id, views]) => {
+      .map(([id, views]: [string, any]) => {
         const property = properties.find(p => p.id === id)
         return {
           id,
@@ -178,9 +178,9 @@ export async function GET(request: NextRequest) {
       }, {} as Record<string, number>)
 
     const topUserPaths = Object.entries(userPaths)
-      .sort((a, b) => b[1] - a[1])
+      .sort(([, a]: [string, any], [, b]: [string, any]) => b - a)
       .slice(0, 10)
-      .map(([path, count]) => ({ path, count }))
+      .map(([path, count]: [string, any]) => ({ path, count }))
 
     // Conversion funnel
     const funnelSteps = [
@@ -208,7 +208,7 @@ export async function GET(request: NextRequest) {
         return acc
       }, {} as Record<string, number>)
 
-    const deviceStatsArray = Object.entries(deviceStats).map(([device, count]) => ({
+    const deviceStatsArray = Object.entries(deviceStats).map(([device, count]: [string, any]) => ({
       device,
       count
     }))
@@ -228,9 +228,9 @@ export async function GET(request: NextRequest) {
       }, {} as Record<string, number>)
 
     const referrerStatsArray = Object.entries(referrerStats)
-      .sort((a, b) => b[1] - a[1])
+      .sort(([, a]: [string, any], [, b]: [string, any]) => b - a)
       .slice(0, 10)
-      .map(([source, count]) => ({ source, count }))
+      .map(([source, count]: [string, any]) => ({ source, count }))
 
     // Real-time metrics (last 24 hours)
     const last24Hours = new Date()
