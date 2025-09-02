@@ -113,7 +113,7 @@ export async function GET(request: NextRequest) {
 
     // Property performance
     const propertyViews = userActivities
-      .filter(activity => activity.action === 'PROPERTY_VIEW')
+      .filter((activity: any) => activity.action === 'PROPERTY_VIEW')
       .reduce((acc: any, activity: any) => {
         if (activity.resource) {
           acc[activity.resource] = (acc[activity.resource] || 0) + 1
@@ -136,7 +136,7 @@ export async function GET(request: NextRequest) {
 
     // Location performance with real data
     const locationViews = userActivities
-      .filter(activity => activity.action === 'LOCATION_VIEW')
+      .filter((activity: any) => activity.action === 'LOCATION_VIEW')
       .reduce((acc: any, activity: any) => {
         if (activity.resource) {
           acc[activity.resource] = (acc[activity.resource] || 0) + 1
@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
 
     // User journey analysis
     const journeyData = userActivities
-      .filter(activity => activity.sessionId)
+      .filter((activity: any) => activity.sessionId)
       .reduce((acc: any, activity: any) => {
         const sessionId = activity.sessionId!
         if (!acc[sessionId]) {
@@ -192,12 +192,12 @@ export async function GET(request: NextRequest) {
 
     const conversionFunnel = funnelSteps.map(({ step, name }) => ({
       step: name,
-      count: userActivities.filter(activity => activity.action === step).length
+      count: userActivities.filter((activity: any) => activity.action === step).length
     }))
 
     // Device and browser stats from user agents
     const deviceStats = userActivities
-      .filter(activity => activity.userAgent)
+      .filter((activity: any) => activity.userAgent)
       .reduce((acc: any, activity: any) => {
         const userAgent = activity.userAgent!.toLowerCase()
         let device = 'Desktop'
@@ -215,7 +215,7 @@ export async function GET(request: NextRequest) {
 
     // Referrer stats
     const referrerStats = pageViews
-      .filter(view => view.referrer && !view.referrer.includes(request.headers.get('host') || ''))
+      .filter((view: any) => view.referrer && !view.referrer.includes(request.headers.get('host') || ''))
       .reduce((acc: any, view: any) => {
         try {
           const url = new URL(view.referrer!)
@@ -238,12 +238,12 @@ export async function GET(request: NextRequest) {
 
     const realtimeMetrics = {
       activeUsers: new Set([
-        ...userActivities.filter(a => a.createdAt >= last24Hours).map(a => a.userId || a.sessionId)
+        ...userActivities.filter((a: any) => a.createdAt >= last24Hours).map((a: any) => a.userId || a.sessionId)
       ]).size,
-      pageViews: pageViews.filter(v => v.createdAt >= last24Hours).length,
-      newContacts: contactSubmissions.filter(c => c.createdAt >= last24Hours).length,
+      pageViews: pageViews.filter((v: any) => v.createdAt >= last24Hours).length,
+      newContacts: contactSubmissions.filter((c: any) => c.createdAt >= last24Hours).length,
       topPages: pageViews
-        .filter(v => v.createdAt >= last24Hours)
+        .filter((v: any) => v.createdAt >= last24Hours)
         .reduce((acc: any, view: any) => {
           acc[view.path] = (acc[view.path] || 0) + 1
           return acc
