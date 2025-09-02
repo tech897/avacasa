@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
         return acc
       }, {} as Record<string, number>)
 
-    const locationStats = locations.map(location => ({
+    const locationStats = locations.map((location: any) => ({
       id: location.id,
       name: location.name,
       views: locationViews[location.id] || 0,
@@ -171,7 +171,7 @@ export async function GET(request: NextRequest) {
 
     // Common user paths
     const userPaths = Object.values(journeyData)
-      .map(journey => journey.map(step => step.action).join(' → '))
+      .map((journey: any) => journey.map((step: any) => step.action).join(' → '))
       .reduce((acc: any, path: any) => {
         acc[path] = (acc[path] || 0) + 1
         return acc
@@ -190,7 +190,7 @@ export async function GET(request: NextRequest) {
       { step: 'CONTACT_SUBMIT', name: 'Contact Submissions' }
     ]
 
-    const conversionFunnel = funnelSteps.map(({ step, name }) => ({
+    const conversionFunnel = funnelSteps.map(({ step, name }: any) => ({
       step: name,
       count: userActivities.filter((activity: any) => activity.action === step).length
     }))
@@ -300,7 +300,7 @@ function calculateAvgSessionDuration(activities: any[]): number {
     return acc
   }, {} as Record<string, { start: Date; end: Date }>)
 
-  const durations = (Object.values(sessions) as { start: Date; end: Date }[]).map((session) => 
+  const durations = (Object.values(sessions) as { start: Date; end: Date }[]).map((session: any) => 
     (session.end.getTime() - session.start.getTime()) / 1000 / 60 // minutes
   )
 
@@ -320,6 +320,6 @@ function calculatePagesPerSession(journeyData: Record<string, any[]>): number {
 }
 
 function calculateConversionRate(activities: any[], totalContacts: number): number {
-  const uniqueVisitors = new Set(activities.map(a => a.sessionId || a.userId)).size
+  const uniqueVisitors = new Set(activities.map((a: any) => a.sessionId || a.userId)).size
   return uniqueVisitors > 0 ? (totalContacts / uniqueVisitors) * 100 : 0
 } 
