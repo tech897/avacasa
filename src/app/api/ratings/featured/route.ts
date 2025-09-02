@@ -1,39 +1,16 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
+import { NextRequest, NextResponse } from 'next/server';
+
+// TEMPORARILY DISABLED: This route is being migrated from Prisma to MongoDB
+// TODO: Convert Prisma calls to MongoDB and re-enable
+
 
 export async function GET(request: NextRequest) {
-  try {
-    // Fetch top 3 approved ratings with highest ratings and helpful votes
-    const ratings = await prisma.rating.findMany({
-      where: {
-        status: "APPROVED",
-        verified: true,
-      },
-      include: {
-        property: {
-          select: {
-            id: true,
-            title: true,
-            location: true,
-          },
-        },
-      },
-      orderBy: [{ rating: "desc" }, { helpful: "desc" }, { createdAt: "desc" }],
-      take: 3,
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: ratings,
-    });
-  } catch (error) {
-    console.error("Error fetching featured ratings:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to fetch featured ratings",
-      },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json(
+    { 
+      error: 'This feature is temporarily unavailable during database migration',
+      message: 'We are upgrading our systems. This feature will be restored soon.',
+      status: 'maintenance'
+    }, 
+    { status: 503 }
+  );
 }

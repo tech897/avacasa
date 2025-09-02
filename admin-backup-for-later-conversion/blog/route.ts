@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminFromRequest } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { getDatabase } from "@/lib/db"
+import { ObjectId } from "mongodb"
 
 export async function GET(request: NextRequest) {
   try {

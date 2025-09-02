@@ -1,65 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-import jwt from 'jsonwebtoken'
+import { NextRequest, NextResponse } from 'next/server';
+
+// TEMPORARILY DISABLED: This route is being migrated from Prisma to MongoDB
+// TODO: Convert Prisma calls to MongoDB and re-enable
+
 
 export async function DELETE(request: NextRequest) {
-  try {
-    const token = request.cookies.get('auth-token')?.value
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      )
-    }
-
-    // Verify JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || (() => {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error('JWT_SECRET environment variable is required in production')
-      }
-      return 'dev-secret-key-only-for-development'
-    })()) as { userId: string }
-
-    // Track account deletion before deleting
-    await prisma.userActivity.create({
-      data: {
-        userId: decoded.userId,
-        action: 'USER_LOGIN', // Using existing enum value
-        metadata: JSON.stringify({
-          action: 'account_deletion',
-          userAgent: request.headers.get('user-agent'),
-          ipAddress: request.headers.get('x-forwarded-for') || 'unknown'
-        }),
-        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-        userAgent: request.headers.get('user-agent')
-      }
-    })
-
-    // Delete user (cascading deletes will handle related records)
-    await prisma.user.delete({
-      where: { id: decoded.userId }
-    })
-
-    // Clear auth cookie
-    const response = NextResponse.json({
-      success: true,
-      message: 'Account deleted successfully'
-    })
-
-    response.cookies.set('auth-token', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 0 // Expire immediately
-    })
-
-    return response
-  } catch (error) {
-    console.error('Account deletion error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-} 
+  return NextResponse.json(
+    { 
+      error: 'This feature is temporarily unavailable during database migration',
+      message: 'We are upgrading our systems. This feature will be restored soon.',
+      status: 'maintenance'
+    }, 
+    { status: 503 }
+  );
+}

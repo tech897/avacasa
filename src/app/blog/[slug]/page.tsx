@@ -1,5 +1,5 @@
 import { Metadata } from 'next'
-import { prisma } from '@/lib/db'
+import { getDatabase } from '@/lib/db'
 import BlogPostClient from '@/components/blog/blog-post-client'
 
 // Generate dynamic metadata for SEO
@@ -9,15 +9,15 @@ export async function generateMetadata(
   try {
     const { slug } = await params
     
-    const post = await prisma.blogPost.findUnique({
-      where: { 
-        slug: slug,
-        status: 'PUBLISHED',
-        active: true
-      },
-      select: {
-        title: true,
-        excerpt: true,
+    const db = await getDatabase();
+    const post = await db.collection('blog_posts').findOne({
+      slug: slug,
+      status: 'PUBLISHED',
+      active: true
+    }, {
+      projection: {
+        title: 1,
+        excerpt: 1,
         author: true,
         category: true,
         tags: true,

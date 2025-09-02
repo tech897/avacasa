@@ -1,13 +1,13 @@
 import NextAuth from "next-auth";
 // import GoogleProvider from "next-auth/providers/google"
-import { PrismaAdapter } from "@auth/prisma-adapter";
-import { prisma } from "./db";
+// Removed PrismaAdapter as we migrated to MongoDB
+import { getDatabase } from "./db";
+import { ObjectId } from "mongodb";
 
 const ALLOWED_ADMIN_EMAIL = process.env.ADMIN_EMAIL || "admin@example.com";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  // Remove adapter temporarily to fix build error
-  // adapter: PrismaAdapter(prisma),
+  // No adapter needed for MongoDB custom implementation
   providers: [
     // Temporarily commented out Google provider
     // GoogleProvider({
@@ -24,39 +24,41 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     //   }
 
     //   // Check if this is the first time signing in
-    //   const existingAdmin = await prisma.admin.findUnique({
-    //     where: { email: user.email }
-    //   })
+    //   const db = await getDatabase();
+    //   const existingAdmin = await db.collection("admins").findOne({
+    //     email: user.email
+    //   });
 
     //   if (!existingAdmin) {
     //     // Create admin user on first login
-    //     await prisma.admin.create({
-    //       data: {
-    //         email: user.email,
-    //         name: user.name || "Admin User",
-    //         password: "", // No password needed for OAuth
-    //         role: "SUPER_ADMIN"
-    //       }
-    //     })
+    //     await db.collection("admins").insertOne({
+    //       email: user.email,
+    //       name: user.name || "Admin User",
+    //       password: "", // No password needed for OAuth
+    //       role: "SUPER_ADMIN",
+    //       createdAt: new Date(),
+    //       updatedAt: new Date()
+    //     });
     //   } else {
     //     // Update last login
-    //     await prisma.admin.update({
-    //       where: { email: user.email },
-    //       data: { lastLogin: new Date() }
-    //     })
+    //     await db.collection("admins").updateOne(
+    //       { email: user.email },
+    //       { $set: { lastLogin: new Date(), updatedAt: new Date() } }
+    //     );
     //   }
 
     //   return true
     // },
     async jwt({ token, user, account }) {
       if (account && user) {
-        // Get admin data
-        const admin = await prisma.admin.findUnique({
-          where: { email: user.email! },
+        // Get admin data from MongoDB
+        const db = await getDatabase();
+        const admin = await db.collection("admins").findOne({
+          email: user.email!
         });
 
         if (admin) {
-          token.adminId = admin.id;
+          token.adminId = admin._id.toString();
           token.role = admin.role;
           token.isAdmin = true;
         }
@@ -83,7 +85,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
 // For backward compatibility, also export the config
 export const authOptions = {
-  // adapter: PrismaAdapter(prisma),
+  // No adapter needed for MongoDB
   providers: [],
   callbacks: {},
   pages: {

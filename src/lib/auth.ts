@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { prisma } from "./db";
+import { getDatabase } from "./db";
+import { ObjectId } from "mongodb";
 import { NextRequest } from "next/server";
 
 const JWT_SECRET =
@@ -30,8 +31,10 @@ export interface UserPayload {
 // Admin Authentication
 export async function authenticateAdmin(email: string, password: string) {
   try {
-    const admin = await prisma.admin.findUnique({
-      where: { email, active: true },
+    const db = await getDatabase();
+    const admin = await db.collection("admins").findOne({
+      email,
+      active: true
     });
 
     if (!admin) {
@@ -44,10 +47,10 @@ export async function authenticateAdmin(email: string, password: string) {
     }
 
     // Update last login
-    await prisma.admin.update({
-      where: { id: admin.id },
-      data: { lastLogin: new Date() },
-    });
+    await db.collection("admins").updateOne(
+      { _id: admin._id },
+      { $set: { lastLogin: new Date(), updatedAt: new Date() } }
+    );
 
     const token = jwt.sign(
       { id: admin.id, email: admin.email, name: admin.name, role: admin.role },
@@ -74,8 +77,10 @@ export async function authenticateAdmin(email: string, password: string) {
 // User Authentication
 export async function authenticateUser(email: string, password: string) {
   try {
-    const user = await prisma.user.findUnique({
-      where: { email, active: true },
+    const db = await getDatabase();
+    const user = await db.collection("users").findOne({
+      email,
+      active: true
     });
 
     if (!user || !user.password) {
@@ -88,10 +93,10 @@ export async function authenticateUser(email: string, password: string) {
     }
 
     // Update last login
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLogin: new Date() },
-    });
+    await db.collection("users").updateOne(
+      { _id: user._id },
+      { $set: { lastLogin: new Date(), updatedAt: new Date() } }
+    );
 
     const token = jwt.sign(
       { id: user.id, email: user.email, name: user.name },
@@ -121,8 +126,9 @@ export async function registerUser(
   name?: string
 ) {
   try {
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
+    const db = await getDatabase();
+    const existingUser = await db.collection("users").findOne({
+      email
     });
 
     if (existingUser) {
@@ -131,14 +137,18 @@ export async function registerUser(
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name,
-        provider: "email",
-      },
-    });
+    const userData = {
+      email,
+      password: hashedPassword,
+      name,
+      provider: "email",
+      active: true,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const result = await db.collection("users").insertOne(userData);
+    const user = { ...userData, id: result.insertedId.toString() };
 
     // Track user registration
     await trackUserActivity(user.id, "USER_REGISTER", null, { email, name });
@@ -188,8 +198,10 @@ export async function getAdminFromRequest(
     if (!payload || !("role" in payload)) return null;
 
     // Verify admin still exists and is active
-    const admin = await prisma.admin.findUnique({
-      where: { id: payload.id, active: true },
+    const db = await getDatabase();
+    const admin = await db.collection("admins").findOne({
+      _id: new ObjectId(payload.id),
+      active: true
     });
 
     return admin ? payload : null;
@@ -213,8 +225,10 @@ export async function getUserFromRequest(
     if (!payload || "role" in payload) return null;
 
     // Verify user still exists and is active
-    const user = await prisma.user.findUnique({
-      where: { id: payload.id, active: true },
+    const db = await getDatabase();
+    const user = await db.collection("users").findOne({
+      _id: new ObjectId(payload.id),
+      active: true
     });
 
     return user ? payload : null;
@@ -240,16 +254,16 @@ export async function trackUserActivity(
     const userAgent = request?.headers.get("user-agent") || "unknown";
     const referrer = request?.headers.get("referer") || null;
 
-    await prisma.userActivity.create({
-      data: {
-        userId,
-        action: action as any,
-        resource,
-        metadata: metadata ? JSON.stringify(metadata) : null,
-        ipAddress,
-        userAgent,
-        referrer,
-      },
+    const db = await getDatabase();
+    await db.collection("user_activities").insertOne({
+      userId,
+      action: action as any,
+      resource,
+      metadata: metadata ? JSON.stringify(metadata) : null,
+      ipAddress,
+      userAgent,
+      referrer,
+      createdAt: new Date()
     });
   } catch (error) {
     console.error("Error tracking user activity:", error);
@@ -271,14 +285,14 @@ export async function trackPageView(
     const userAgent = request?.headers.get("user-agent") || "unknown";
     const referrer = request?.headers.get("referer") || null;
 
-    await prisma.pageView.create({
-      data: {
-        path,
-        userId,
-        ipAddress,
-        userAgent,
-        referrer,
-      },
+    const db = await getDatabase();
+    await db.collection("page_views").insertOne({
+      path,
+      userId,
+      ipAddress,
+      userAgent,
+      referrer,
+      createdAt: new Date()
     });
   } catch (error) {
     console.error("Error tracking page view:", error);

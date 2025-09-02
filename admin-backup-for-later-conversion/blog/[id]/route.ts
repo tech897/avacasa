@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminFromRequest } from '@/lib/auth'
-import { prisma } from '@/lib/db'
+import { getDatabase } from '@/lib/db'
+import { ObjectId } from 'mongodb'
 
 export async function GET(
   request: NextRequest,
@@ -17,9 +18,10 @@ export async function GET(
     }
 
     const { id } = await params
+    const db = await getDatabase()
 
-    const post = await prisma.blogPost.findUnique({
-      where: { id }
+    const post = await db.collection('blog_posts').findOne({
+      _id: new ObjectId(id)
     })
 
     if (!post) {
@@ -29,7 +31,14 @@ export async function GET(
       )
     }
 
-    return NextResponse.json({ post })
+    // Transform _id to id for frontend compatibility
+    const transformedPost = {
+      ...post,
+      id: post._id.toString()
+    }
+    delete (transformedPost as any)._id
+
+    return NextResponse.json({ post: transformedPost })
   } catch (error) {
     console.error('Blog post fetch error:', error)
     return NextResponse.json(
@@ -55,6 +64,7 @@ export async function PATCH(
 
     const { id } = await params
     const data = await request.json()
+    const db = await getDatabase()
     
     // Process JSON fields if they exist
     const updateData: any = { ...data }
@@ -67,12 +77,32 @@ export async function PATCH(
       updateData.publishedAt = null
     }
 
-    const post = await prisma.blogPost.update({
-      where: { id },
-      data: updateData
+    updateData.updatedAt = new Date()
+
+    const result = await db.collection('blog_posts').updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateData }
+    )
+
+    if (result.matchedCount === 0) {
+      return NextResponse.json(
+        { error: 'Blog post not found' },
+        { status: 404 }
+      )
+    }
+
+    // Fetch updated post
+    const post = await db.collection('blog_posts').findOne({
+      _id: new ObjectId(id)
     })
 
-    return NextResponse.json({ post })
+    const transformedPost = {
+      ...post,
+      id: post?._id.toString()
+    }
+    delete (transformedPost as any)._id
+
+    return NextResponse.json({ post: transformedPost })
   } catch (error) {
     console.error('Blog post update error:', error)
     return NextResponse.json(
@@ -97,10 +127,18 @@ export async function DELETE(
     }
 
     const { id } = await params
+    const db = await getDatabase()
 
-    await prisma.blogPost.delete({
-      where: { id }
+    const result = await db.collection('blog_posts').deleteOne({
+      _id: new ObjectId(id)
     })
+
+    if (result.deletedCount === 0) {
+      return NextResponse.json(
+        { error: 'Blog post not found' },
+        { status: 404 }
+      )
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
