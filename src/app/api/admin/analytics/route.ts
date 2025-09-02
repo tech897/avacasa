@@ -123,7 +123,7 @@ export async function GET(request: NextRequest) {
 
     const topProperties = Object.entries(propertyViews)
       .map(([id, views]: [string, any]) => {
-        const property = properties.find(p => p.id === id)
+        const property = properties.find((p: any) => p.id === id)
         return {
           id,
           title: property?.title || 'Unknown Property',
