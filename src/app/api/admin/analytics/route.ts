@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
         views: stats.views,
         uniqueUsers: stats.uniqueUsers.size
       }))
-      .sort((a, b) => b.views - a.views)
+      .sort((a: any, b: any) => b.views - a.views)
       .slice(0, 10)
 
     // User activity breakdown
@@ -131,7 +131,7 @@ export async function GET(request: NextRequest) {
           views
         }
       })
-      .sort((a, b) => b.views - a.views)
+      .sort((a: any, b: any) => b.views - a.views)
       .slice(0, 10)
 
     // Location performance with real data
@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
       views: locationViews[location.id] || 0,
       properties: location._count.properties,
       slug: location.slug
-    })).sort((a, b) => b.views - a.views)
+    })).sort((a: any, b: any) => b.views - a.views)
 
     // User journey analysis
     const journeyData = userActivities
