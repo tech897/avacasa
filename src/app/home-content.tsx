@@ -20,15 +20,18 @@ export default function HomePageContent() {
   const [featuredProperties, setFeaturedProperties] = useState<Property[]>([]);
   const [featuredLocations, setFeaturedLocations] = useState<Location[]>([]);
   const [featuredRatings, setFeaturedRatings] = useState<Rating[]>([]);
+  const [featuredBlogs, setFeaturedBlogs] = useState<any[]>([]);
   const [propertiesLoading, setPropertiesLoading] = useState(true);
   const [locationsLoading, setLocationsLoading] = useState(true);
   const [ratingsLoading, setRatingsLoading] = useState(true);
+  const [blogsLoading, setBlogsLoading] = useState(true);
 
-  // Fetch featured properties, locations, and ratings from API
+  // Fetch featured properties, locations, ratings, and blogs from API
   useEffect(() => {
     fetchFeaturedProperties();
     fetchFeaturedLocations();
     fetchFeaturedRatings();
+    fetchFeaturedBlogs();
   }, []);
 
   const fetchFeaturedProperties = async () => {
@@ -80,6 +83,53 @@ export default function HomePageContent() {
       console.error("Error fetching featured ratings:", error);
     } finally {
       setRatingsLoading(false);
+    }
+  };
+
+  const fetchFeaturedBlogs = async () => {
+    try {
+      setBlogsLoading(true);
+      const response = await fetch("/api/blog?featured=true&limit=3");
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setFeaturedBlogs(result.data);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching featured blogs:", error);
+      // Fallback to static data if API fails
+      setFeaturedBlogs([
+        {
+          id: 1,
+          title: "Rise of Sustainable Living",
+          excerpt:
+            "From city balconies with thriving kitchen gardens to off-grid retreats powered by renewable energy, sustainable living is reshaping how we think about our homes.",
+          featuredImage:
+            "https://images.unsplash.com/photo-1518837695005-2083093ee35b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+          slug: "rise-of-sustainable-living",
+        },
+        {
+          id: 2,
+          title: "Can Your Vacation Home Pay for Itself?",
+          excerpt:
+            "The idea of owning a vacation home in Goa, a coffee estate in Coorg, or a scenic farmland in Chikkamagaluru becomes more attractive when you consider the rental income potential.",
+          featuredImage:
+            "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+          slug: "vacation-home-pay-for-itself",
+        },
+        {
+          id: 3,
+          title: "Staycation State of Mind",
+          excerpt:
+            "What if your next vacation didn't involve long airport lines, expensive bookings, or unfamiliar surroundings? Welcome to the world of staycations at your own holiday home.",
+          featuredImage:
+            "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+          slug: "staycation-state-of-mind",
+        },
+      ]);
+    } finally {
+      setBlogsLoading(false);
     }
   };
 
@@ -195,36 +245,7 @@ export default function HomePageContent() {
     },
   ];
 
-  // Mock blog data
-  const featuredBlogs = [
-    {
-      id: 1,
-      title: "Rise of Sustainable Living",
-      excerpt:
-        "From city balconies with thriving kitchen gardens to off-grid retreats powered by renewable energy, sustainable living is reshaping how we think about our homes.",
-      image:
-        "https://images.unsplash.com/photo-1518837695005-2083093ee35b?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-      slug: "rise-of-sustainable-living",
-    },
-    {
-      id: 2,
-      title: "Can Your Vacation Home Pay for Itself?",
-      excerpt:
-        "The idea of owning a vacation home in Goa, a coffee estate in Coorg, or a scenic farmland in Chikkamagaluru becomes more attractive when you consider the rental income potential.",
-      image:
-        "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-      slug: "vacation-home-pay-for-itself",
-    },
-    {
-      id: 3,
-      title: "Staycation State of Mind",
-      excerpt:
-        "What if your next vacation didn't involve long airport lines, expensive bookings, or unfamiliar surroundings? Welcome to the world of staycations at your own holiday home.",
-      image:
-        "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-      slug: "staycation-state-of-mind",
-    },
-  ];
+
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -522,27 +543,43 @@ export default function HomePageContent() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto mb-12">
-            {featuredBlogs.map((blog) => (
-              <Link key={blog.id} href={`/blog/${blog.slug}`} className="group">
-                <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
-                  <div className="aspect-[4/3] overflow-hidden">
-                    <img
-                      src={blog.image}
-                      alt={blog.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                  </div>
+            {blogsLoading ? (
+              // Loading skeleton
+              [...Array(3)].map((_, index) => (
+                <div key={index} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 animate-pulse">
+                  <div className="aspect-[4/3] bg-gray-200"></div>
                   <div className="p-6">
-                    <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-gray-700 transition-colors">
-                      {blog.title}
-                    </h3>
-                    <p className="text-gray-600 leading-relaxed">
-                      {blog.excerpt}
-                    </p>
+                    <div className="h-6 bg-gray-200 rounded mb-3"></div>
+                    <div className="space-y-2">
+                      <div className="h-4 bg-gray-200 rounded"></div>
+                      <div className="h-4 bg-gray-200 rounded w-4/5"></div>
+                    </div>
                   </div>
                 </div>
-              </Link>
-            ))}
+              ))
+            ) : (
+              featuredBlogs.map((blog) => (
+                <Link key={blog.id} href={`/blog/${blog.slug}`} className="group">
+                  <div className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
+                    <div className="aspect-[4/3] overflow-hidden">
+                      <img
+                        src={blog.featuredImage || blog.image}
+                        alt={blog.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    </div>
+                    <div className="p-6">
+                      <h3 className="text-xl font-bold text-gray-900 mb-3 group-hover:text-gray-700 transition-colors">
+                        {blog.title}
+                      </h3>
+                      <p className="text-gray-600 leading-relaxed">
+                        {blog.excerpt}
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              ))
+            )}
           </div>
 
           {/* View All Blogs Button - After Content */}

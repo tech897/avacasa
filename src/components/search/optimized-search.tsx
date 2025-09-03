@@ -268,14 +268,27 @@ export function OptimizedSearch({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Dynamic styling based on variant
+  const searchBarStyles = variant === "hero"
+    ? "bg-white/98 backdrop-blur-md border-0 shadow-2xl rounded-full overflow-hidden"
+    : "bg-white border-gray-300 rounded-lg";
+    
+  const inputStyles = variant === "hero"
+    ? "w-full pl-16 pr-6 py-6 bg-transparent text-gray-800 placeholder-gray-500 text-lg focus:outline-none transition-all duration-300"
+    : "w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500";
+    
+  const searchIconStyles = variant === "hero"
+    ? "absolute left-6 top-1/2 transform -translate-y-1/2 text-gray-600 w-6 h-6"
+    : "absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5";
+
   return (
     <div className={`relative ${className}`} ref={searchRef}>
       <form onSubmit={handleSubmit} className="relative">
-        <div className="flex gap-2">
+        <div className={variant === "hero" ? "relative flex items-center" : "flex gap-2"}>
           {/* Search Input */}
           <div className="relative flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <div className={`relative ${searchBarStyles}`}>
+              <Search className={searchIconStyles} />
               <input
                 ref={inputRef}
                 type="text"
@@ -288,7 +301,7 @@ export function OptimizedSearch({
                   }
                 }}
                 placeholder={placeholder}
-                className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all duration-200 text-gray-900 placeholder-gray-500"
+                className={inputStyles}
               />
               {query && (
                 <button
@@ -299,9 +312,12 @@ export function OptimizedSearch({
                     setShowSuggestions(false);
                     inputRef.current?.focus();
                   }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  className={variant === "hero"
+                    ? "absolute right-20 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                    : "absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  }
                 >
-                  <X className="w-4 h-4" />
+                  <X className={variant === "hero" ? "w-5 h-5" : "w-4 h-4"} />
                 </button>
               )}
             </div>
@@ -345,8 +361,14 @@ export function OptimizedSearch({
 
             {/* Loading indicator */}
             {isLoading && (
-              <div className="absolute right-10 top-1/2 transform -translate-y-1/2">
-                <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+              <div className={variant === "hero"
+                ? "absolute right-28 top-1/2 transform -translate-y-1/2"
+                : "absolute right-10 top-1/2 transform -translate-y-1/2"
+              }>
+                <Loader2 className={variant === "hero"
+                  ? "w-5 h-5 animate-spin text-gray-500"
+                  : "w-4 h-4 animate-spin text-gray-400"
+                } />
               </div>
             )}
           </div>
@@ -367,13 +389,23 @@ export function OptimizedSearch({
           )}
 
           {/* Search Button */}
-          <Button
-            type="submit"
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center gap-2"
-          >
-            <Search className="w-4 h-4" />
-            Search
-          </Button>
+          {variant === "hero" ? (
+            <Button
+              type="submit"
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 w-14 h-14 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-full transition-all duration-300 flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-105 border-0"
+              title="Search Properties"
+            >
+              <Search className="w-6 h-6" />
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200 flex items-center gap-2"
+            >
+              <Search className="w-4 h-4" />
+              Search
+            </Button>
+          )}
         </div>
       </form>
     </div>
